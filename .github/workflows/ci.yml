@@ -7,7 +7,8 @@ on:
     branches: [ main ]
 
 jobs:
-  test:
+  test-default:
+    name: Test Default (Docker Model Runner)
     runs-on: ubuntu-latest
     
     steps:
@@ -17,25 +18,51 @@ jobs:
       uses: docker/setup-buildx-action@v3
     
     - name: Build Docker images
-      run: docker-compose build
+      run: docker compose build
     
-    - name: Test basic functionality
+    - name: Test Docker Model Runner configuration
       env:
-        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        PROBLEM: "Calculate the sum of numbers 1 to 10"
+        PROBLEM: "Calculate the sum of numbers 1 to 5"
       run: |
-        if [ -n "$OPENAI_API_KEY" ]; then
-          timeout 120s docker-compose up --abort-on-container-exit || true
-          echo "✅ Demo completed (or timed out safely)"
-        else
-          echo "⚠️ OPENAI_API_KEY not set, skipping live test"
-          echo "✅ Build test passed"
-        fi
+        echo "✅ Testing Docker Model Runner (build only - no GPU in CI)"
+        echo "⚠️ Full DMR test requires GPU, skipping execution in CI"
+        docker compose config
+        echo "✅ Compose configuration valid"
     
     - name: Cleanup
-      run: docker-compose down -v
+      run: docker compose down -v
+
+  test-openai:
+    name: Test OpenAI Configuration
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+    
+    - name: Build Docker images
+      run: docker compose build
+    
+    - name: Test OpenAI configuration
+      env:
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        PROBLEM: "Calculate the sum of numbers 1 to 5"
+      run: |
+        if [ -n "$OPENAI_API_KEY" ]; then
+          echo "✅ Testing OpenAI configuration with live API"
+          timeout 120s docker compose -f compose.yaml -f compose.openai.yaml up --abort-on-container-exit || true
+          echo "✅ OpenAI demo completed (or timed out safely)"
+        else
+          echo "⚠️ OPENAI_API_KEY not set, testing configuration only"
+          docker compose -f compose.yaml -f compose.openai.yaml config
+          echo "✅ OpenAI compose configuration valid"
+        fi
     
     - name: Check output files were created
+      env:
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       run: |
         if [ -n "$OPENAI_API_KEY" ]; then
           ls -la output/ || echo "Output directory not found"
@@ -46,8 +73,43 @@ jobs:
             echo "⚠️ Result file not found"
           fi
         fi
+    
+    - name: Cleanup
+      run: docker compose -f compose.yaml -f compose.openai.yaml down -v
+
+  test-offload:
+    name: Test Docker Offload Configuration
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+    
+    - name: Build Docker images
+      run: docker compose build
+    
+    - name: Test Docker Offload configuration
+      env:
+        DOCKER_OFFLOAD_TOKEN: ${{ secrets.DOCKER_OFFLOAD_TOKEN }}
+      run: |
+        if [ -n "$DOCKER_OFFLOAD_TOKEN" ]; then
+          echo "✅ Testing Docker Offload configuration with live token"
+          docker compose -f compose.yaml -f compose.offload.yaml config
+          echo "✅ Docker Offload configuration valid"
+          # Note: Not running live test as Offload may not be available in CI
+        else
+          echo "⚠️ DOCKER_OFFLOAD_TOKEN not set, testing configuration only"
+          docker compose -f compose.yaml -f compose.offload.yaml config
+          echo "✅ Docker Offload compose configuration valid"
+        fi
+    
+    - name: Cleanup
+      run: docker compose -f compose.yaml -f compose.offload.yaml down -v
 
   lint:
+    name: Code Quality
     runs-on: ubuntu-latest
     
     steps:
@@ -76,6 +138,7 @@ jobs:
         black --check --diff coding-agent.py
 
   security:
+    name: Security Scan
     runs-on: ubuntu-latest
     
     steps:
@@ -94,3 +157,25 @@ jobs:
       if: always()
       with:
         sarif_file: 'trivy-results.sarif'
+
+  validate-compose:
+    name: Validate All Compose Files
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Validate compose files
+      run: |
+        echo "🔍 Validating all compose configurations..."
+        
+        echo "✅ Default configuration:"
+        docker compose config --quiet
+        
+        echo "✅ OpenAI configuration:"
+        docker compose -f compose.yaml -f compose.openai.yaml config --quiet
+        
+        echo "✅ Docker Offload configuration:"
+        docker compose -f compose.yaml -f compose.offload.yaml config --quiet
+        
+        echo "✅ All compose files are valid!"

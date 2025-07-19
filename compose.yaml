@@ -4,10 +4,10 @@ services:
     environment:
       - PROBLEM=${PROBLEM:-Calculate the first 10 Fibonacci numbers}
       - MODEL_PROVIDER=docker-model-runner
-      # Use Docker Model Runner's OpenAI-compatible endpoint
-      - OPENAI_BASE_URL=http://host.docker.internal/engines/llama.cpp/
+      # FIXED: Use correct Docker Model Runner endpoint with port 12434
+      - OPENAI_BASE_URL=http://host.docker.internal:12434/v1
       - OPENAI_API_KEY=irrelevant
-      - MODEL_NAME=ai/qwen3:8B-Q4_0
+      - MODEL_NAME=llama.cpp
       - MCPGATEWAY_URL=http://mcp-gateway:8811
     volumes:
       - ./output:/app/output
@@ -21,10 +21,9 @@ services:
       - "8811:8811"
     use_api_socket: true
     command:
-      - --secrets=/run/secrets/mcp_secret
+      - --transport=sse
       - --servers=node-code-sandbox
-    secrets:
-      - mcp_secret
+      - --tools=run_js
 
 # Docker Model Runner models configuration
 models:
@@ -34,7 +33,3 @@ models:
   qwen3-medium:
     model: ai/qwen3:14B-Q6_K # 11.28 GB
     context_size: 15000 # 15 GB VRAM
-
-secrets:
-  mcp_secret:
-    file: ./.mcp.env

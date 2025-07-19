@@ -17,23 +17,12 @@ def wait_for_model_service():
     model_provider = os.getenv('MODEL_PROVIDER', 'docker-model-runner').lower()
     
     if model_provider in ['docker-model-runner', 'local']:
-        # Docker Model Runner uses a different endpoint structure
-        model_url = os.getenv('MODEL_RUNNER_URL', 'http://localhost:8000')
-        print("🔄 Waiting for Docker Model Runner to be ready...")
-        
-        for i in range(60):  # Wait up to 60 seconds for model to be ready
-            try:
-                # Docker Model Runner health check endpoint
-                response = requests.get(f"{model_url}/health", timeout=5)
-                if response.status_code == 200:
-                    print("✅ Docker Model Runner is ready")
-                    return True
-            except:
-                pass
-            time.sleep(1)
-        
-        print("⚠️ Docker Model Runner not ready, continuing anyway...")
-        return False
+        # Docker Model Runner is automatically managed by Docker Compose
+        # No need for health checks, just wait a bit for startup
+        print("🔄 Waiting for Docker Model Runner to initialize...")
+        time.sleep(5)  # Give Docker Model Runner time to start
+        print("✅ Docker Model Runner should be ready")
+        return True
     
     return True
 
@@ -47,11 +36,15 @@ def create_ai_client():
     
     elif provider in ['docker-model-runner', 'local']:
         from openai import OpenAI
-        # Docker Model Runner provides OpenAI-compatible API
-        model_url = os.getenv('MODEL_RUNNER_URL', 'http://localhost:8000')
+        # Use OpenAI-compatible endpoint from environment
+        base_url = os.getenv('OPENAI_BASE_URL', 'http://host.docker.internal/engines/llama.cpp/')
+        api_key = os.getenv('OPENAI_API_KEY', 'irrelevant')
+        
+        print(f"🔗 Connecting to Docker Model Runner at: {base_url}")
+        
         return OpenAI(
-            base_url=f"{model_url}/v1",
-            api_key="dummy-key"  # Docker Model Runner doesn't need real API key
+            base_url=base_url,
+            api_key=api_key
         )
     
     else:
@@ -60,12 +53,16 @@ def create_ai_client():
 def generate_code_solution(problem):
     """Generate JavaScript code to solve the given problem"""
     client = create_ai_client()
-    model_name = os.getenv('MODEL_RUNNER_MODEL', 'qwen3-small')
-    
-    # For OpenAI, use OpenAI model names
     provider = os.getenv('MODEL_PROVIDER', 'docker-model-runner').lower()
+    
+    # Use appropriate model name based on provider
     if provider == 'openai':
         model_name = os.getenv('MODEL_NAME', 'gpt-3.5-turbo')
+    else:
+        # For Docker Model Runner, use the model name from environment
+        model_name = os.getenv('MODEL_NAME', 'ai/qwen3:8B-Q4_0')
+    
+    print(f"🤖 Using model: {model_name}")
     
     prompt = f"""
     Write JavaScript code to solve this problem: {problem}
@@ -245,12 +242,13 @@ def execute_code_in_sandbox(code):
 def analyze_results(problem, code, execution_result):
     """Analyze the code execution results"""
     client = create_ai_client()
-    model_name = os.getenv('MODEL_RUNNER_MODEL', 'qwen3-small')
-    
-    # For OpenAI, use OpenAI model names
     provider = os.getenv('MODEL_PROVIDER', 'docker-model-runner').lower()
+    
+    # Use appropriate model name based on provider
     if provider == 'openai':
         model_name = os.getenv('MODEL_NAME', 'gpt-3.5-turbo')
+    else:
+        model_name = os.getenv('MODEL_NAME', 'ai/qwen3:8B-Q4_0')
     
     if execution_result['success']:
         status = "✅ Success"
@@ -291,7 +289,7 @@ def analyze_results(problem, code, execution_result):
 def main():
     problem = os.getenv('PROBLEM', 'Calculate the first 10 Fibonacci numbers')
     provider = os.getenv('MODEL_PROVIDER', 'docker-model-runner')
-    model_name = os.getenv('MODEL_RUNNER_MODEL', 'qwen3-small')
+    model_name = os.getenv('MODEL_NAME', 'ai/qwen3:8B-Q4_0')
     
     print(f"🤖 Coding Agent Starting...")
     print(f"📝 Problem: {problem}")

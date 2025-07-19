@@ -1,41 +1,27 @@
 services:
-  # AI agent that solves coding problems using Node.js sandbox
+  # AI coding agent using MCP for Node.js code execution  
   coding-agent:
     build: .
     environment:
       - PROBLEM=${PROBLEM:-Calculate the first 10 Fibonacci numbers}
     volumes:
       - ./output:/app/output
-      - /var/run/docker.sock:/var/run/docker.sock
+      - ./sandbox-output:/app/sandbox-output
     depends_on:
-      - model
-      - node-sandbox
+      - mcp-gateway
 
-  # Model service (Docker Model Runner handles this automatically)  
-  model:
-    image: ollama/ollama:latest
-    volumes:
-      - model-data:/root/.ollama
-    environment:
-      - OLLAMA_HOST=0.0.0.0:11434
+  # MCP Gateway for coordinating MCP servers
+  mcp-gateway:
+    image: docker/mcp-gateway:latest
     ports:
-      - "11434:11434"
-    command: ["ollama", "serve"]
-
-  # Alfonso Graziano's Node.js code execution sandbox (MCP server)
-  node-sandbox:
-    image: alfonsograziano/node-code-sandbox-mcp:latest
-    stdin_open: true
+      - "3001:3001"
+    environment:
+      - MCP_SERVERS=node-sandbox
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - ./sandbox-output:/root
-    environment:
-      - FILES_DIR=/root
 
-volumes:
-  model-data:
-
+# Default uses Docker Model Runner (local models)
 # Usage:
-# Default (Docker Model Runner): docker compose up --build
-# With OpenAI: docker compose -f compose.yaml -f compose.openai.yaml up --build
+# Default (DMR): docker compose up --build
+# With OpenAI: docker compose -f compose.yaml -f compose.openai.yaml up --build  
 # With Offload: docker compose -f compose.yaml -f compose.offload.yaml up --build

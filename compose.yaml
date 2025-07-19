@@ -1,64 +1,29 @@
 services:
-  agents:
-    image: demo/agents
-    build:
-      context: agent
-    ports:
-      - "7777:7777"
+  coding-agent:
+    build: .
     environment:
-      # point agents at the MCP gateway
-      - MCPGATEWAY_URL=mcp-gateway:8811
+      - PROBLEM=${PROBLEM:-Calculate the first 10 Fibonacci numbers}
+      - MODEL_PROVIDER=${MODEL_PROVIDER:-local}
+      - MODEL_NAME=${MODEL_NAME:-llama3.2:3b}
     volumes:
-      # mount the agents file
-      - ./agents.yaml:/agents.yaml
-    models:
-      qwen3-small:
-        endpoint_var: MODEL_RUNNER_URL
-        model_var: MODEL_RUNNER_MODEL
-  agents-ui:
-    image: demo/ui
-    build:
-      context: agent-ui
-    ports:
-      - "3000:3000"
-    environment:
-      - AGENTS_URL=http://localhost:7777
+      - ./output:/app/output
+      - ./sandbox-output:/app/sandbox-output
+      - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
-      - agents
-  mcp-gateway:
-    # mcp-gateway secures your MCP servers
-    image: docker/mcp-gateway:latest
+      - model
+
+  model:
+    image: ollama/ollama:latest
     ports:
-      - "8811:8811"
-    # use docker API socket to start MCP servers
-    use_api_socket: true
-    command:
-      # securely embed secrets into the gateway
-      - --secrets=/run/secrets/mcp_secret
-      # add any MCP servers you want to use
-      - --servers=node-sandbox
-    secrets:
-      - mcp_secret
-models:
-  qwen3-small:
-    # pre-pull the model when starting Docker Model Runner
-    #model: ai/qwen3:30B-A3B-Q4_K_M
-    model: ai/qwen3:8B-Q4_0 # 4.44 GB
-    context_size: 15000 # 7 GB VRAM
-    # increase context size to handle larger results
-    # context_size: 41000 # 13 GB VRAM
-  qwen3-medium:
-    model: ai/qwen3:14B-Q6_K # 11.28 GB
-    context_size: 15000 # 15 GB VRAM
-    # increase context size to handle larger results
-    # context_size: 41000 # 21 GB VRAM
-  # The qwen3-large model is defined in compose.offload.yaml
-  # because it requires more resources and is intended to run with Docker Offload.
-  # A recommended practice with Docker Compose is to isolate specialized configurations
-  # in override files. These files modify the base setup when applied,
-  # in our case:
-  # docker compose -f compose.yaml -f compose.offload.yaml up --build
-# mount the secrets file for MCP servers
-secrets:
-  mcp_secret:
-    file: ./.mcp.env
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+
+volumes:
+  ollama_data:
+
+# Usage:
+# Default (local models): docker compose up --build
+# With custom problem: PROBLEM="Your coding problem" docker compose up --build

@@ -54,17 +54,6 @@ def create_ai_client():
             api_key="dummy-key"  # Docker Model Runner doesn't need real API key
         )
     
-    elif provider == 'docker-offload':
-        from openai import OpenAI
-        model_url = os.getenv('MODEL_URL', 'https://docker.com/api/v1/models')
-        token = os.getenv('DOCKER_OFFLOAD_TOKEN')
-        if not token:
-            raise ValueError("DOCKER_OFFLOAD_TOKEN is required for Docker Offload")
-        return OpenAI(
-            base_url=model_url,
-            api_key=token
-        )
-    
     else:
         raise ValueError(f"Unsupported MODEL_PROVIDER: {provider}")
 

@@ -4,14 +4,13 @@ A truly minimal agentic system that **solves coding problems** using AI + Node.j
 
 [![License: MIT OR Apache-2.0](https://img.shields.io/badge/License-MIT%20OR%20Apache--2.0-blue.svg)](LICENSE)
 [![Docker](https://img.shields.io/badge/Docker-Required-blue.svg)](https://www.docker.com/)
-[![OpenAI](https://img.shields.io/badge/OpenAI-API-green.svg)](https://openai.com/)
 
 ## What It Does
 
 This demo showcases a complete agentic workflow:
 
 1. 🧠 **Takes a coding problem** (e.g., "Sort array by date")
-2. 💡 **AI generates JavaScript solution** using OpenAI GPT
+2. 💡 **AI generates JavaScript solution** using local LLM (Docker Model Runner) or OpenAI
 3. 🏃 **Executes code safely** in Node.js sandbox container  
 4. 📊 **Analyzes results** and provides intelligent feedback
 5. 💾 **Saves code + results** for review
@@ -19,7 +18,7 @@ This demo showcases a complete agentic workflow:
 ## Architecture
 
 ```
-🤖 Coding Agent → 🧠 OpenAI → 📝 Generate Code
+🤖 Coding Agent → 🧠 LLM (DMR/OpenAI/Offload) → 📝 Generate Code
        ↓
 🏃 Node.js Sandbox → ⚡ Execute → 📊 Return Results  
        ↓
@@ -28,61 +27,88 @@ This demo showcases a complete agentic workflow:
 
 **MCP Server Used:** [Alfonso Graziano's node-code-sandbox-mcp](https://github.com/alfonsograziano/node-code-sandbox-mcp)
 
-## Quick Start
-
-### Prerequisites
+## Prerequisites
 
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/) 4.43.0+ or [Docker Engine](https://docs.docker.com/engine/)
-- OpenAI API key ([Get one here](https://platform.openai.com/api-keys))
+- A laptop or workstation with a GPU (e.g., a MacBook) for running open models locally
+- If you don't have a GPU, you can use [Docker Offload](https://www.docker.com/products/docker-offload) or OpenAI
+- If using Docker Engine on Linux, ensure [Docker Model Runner requirements](https://docs.docker.com/ai/model-runner/) are met
 
-### Setup
+## Quick Start
 
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/ajeetraina/minimal-agentic-compose.git
-   cd minimal-agentic-compose
-   ```
+### Method 1: Local Models (Default - Docker Model Runner)
 
-2. **Set your OpenAI API key:**
-   ```bash
-   export OPENAI_API_KEY=your_openai_api_key_here
-   ```
-   
-   Or create a `.env` file:
-   ```bash
-   cp .env.example .env
-   # Edit .env and add your OpenAI API key
-   ```
+```bash
+# Clone and setup
+git clone https://github.com/ajeetraina/minimal-agentic-compose.git
+cd minimal-agentic-compose
 
-3. **Run the demo:**
-   ```bash
-   PROBLEM="Create a function to find prime numbers under 100" docker-compose up --build
-   ```
+# Run with local models (no API key needed!)
+PROBLEM="Create a function to find prime numbers under 100" docker compose up --build
+```
 
-4. **Check the results:**
-   ```bash
-   cat output/solution.js    # Generated code
-   cat output/result.txt     # Execution results + AI analysis
-   ls sandbox-output/        # Any files created by the code
-   ```
+### Method 2: OpenAI Models
+
+```bash
+# Set your OpenAI API key
+echo "sk-your_openai_api_key_here" > secret.openai-api-key
+
+# Or set environment variable
+export OPENAI_API_KEY=your_openai_api_key_here
+
+# Run with OpenAI
+PROBLEM="Implement binary search" docker compose -f compose.yaml -f compose.openai.yaml up --build
+```
+
+### Method 3: Docker Offload
+
+```bash
+# Set your Docker Offload token
+export DOCKER_OFFLOAD_TOKEN=your_token_here
+
+# Run with Docker Offload
+PROBLEM="Generate JSON data" docker compose -f compose.yaml -f compose.offload.yaml up --build
+```
+
+## Configuration Options
+
+The demo supports multiple configuration methods:
+
+### Environment Variables
+```bash
+# Create .mcp.env from template
+cp .mcp.env.example .mcp.env
+# Edit .mcp.env with your settings
+
+# Or set variables directly
+PROBLEM="Your coding problem" docker compose up
+```
+
+### Model Providers
+
+| Provider | Compose Command | Requirements |
+|----------|----------------|--------------|
+| **Docker Model Runner** (Default) | `docker compose up` | Local GPU recommended |
+| **OpenAI** | `docker compose -f compose.yaml -f compose.openai.yaml up` | OpenAI API key |
+| **Docker Offload** | `docker compose -f compose.yaml -f compose.offload.yaml up` | Docker Offload token |
 
 ## Example Problems
 
 ```bash
 # Algorithm challenges
-PROBLEM="Implement binary search algorithm" docker-compose up
+PROBLEM="Implement quicksort algorithm" docker compose up
 
 # Data manipulation
-PROBLEM="Parse CSV data and calculate averages" docker-compose up
+PROBLEM="Parse CSV data and calculate averages" docker compose up
 
 # Math problems  
-PROBLEM="Calculate compound interest with monthly contributions" docker-compose up
-
-# Utility functions
-PROBLEM="Create a URL validator function" docker-compose up
+PROBLEM="Calculate compound interest with monthly contributions" docker compose up
 
 # File generation
-PROBLEM="Generate a JSON file with sample user data" docker-compose up
+PROBLEM="Generate a JSON file with sample user data" docker compose up
+
+# Web utilities
+PROBLEM="Create a URL validator function" docker compose up
 ```
 
 ## Output Files
@@ -102,6 +128,8 @@ The demo creates several output files:
 ```javascript
 // Problem: Calculate the first 10 Fibonacci numbers
 // Generated: 2024-07-19T10:30:45
+// Model Provider: docker-model-runner
+// Model: llama3.2:3b
 // MCP Server: Alfonso Graziano's node-code-sandbox
 
 function fibonacci(n) {
@@ -123,77 +151,97 @@ console.log("Sum:", result.reduce((a, b) => a + b, 0));
 **Output:** `First 10 Fibonacci numbers: [0,1,1,2,3,5,8,13,21,34]`  
 **AI Analysis:** "The solution correctly implements the Fibonacci sequence using an iterative approach. The code is clean, efficient, and includes helpful output for verification."
 
-## Advanced Usage
-
-### Using OpenAI Models Instead of Local Models
-
-The demo uses OpenAI by default, but you can customize the model:
-
-```python
-# Edit coding-agent.py, line 37
-model="gpt-4"  # or "gpt-3.5-turbo"
-```
-
-### Customization Options
-
-- **Change execution timeout:** Modify `timeout=60` in `execute_code_in_sandbox()`
-- **Add more dependencies:** Update the code generation prompt to include npm packages
-- **Different analysis:** Customize the analysis prompt in `analyze_results()`
-- **Output format:** Modify file writing in `main()`
-
-### Development Mode
-
-For development and testing:
-
-```bash
-# Build and run with verbose output
-docker-compose up --build --verbose
-
-# Run without rebuilding
-docker-compose up
-
-# Clean up containers
-docker-compose down
-```
-
 ## File Structure
 
 ```
 minimal-agentic-compose/
-├── docker-compose.yml       # Orchestration configuration
-├── coding-agent.py          # Main AI agent application
+├── compose.yaml             # Main compose file (Docker Model Runner)
+├── compose.openai.yaml      # OpenAI override
+├── compose.offload.yaml     # Docker Offload override
+├── coding-agent.py          # Multi-provider AI agent
 ├── Dockerfile              # Agent container definition
 ├── requirements.txt         # Python dependencies
-├── .env.example            # Environment variables template
-├── .dockerignore           # Docker ignore rules
-├── .gitignore             # Git ignore rules
-├── LICENSE-MIT            # MIT License
-├── LICENSE-APACHE         # Apache 2.0 License
-├── CONTRIBUTING.md        # Contribution guidelines
-├── README.md              # This file
-└── output/                # Generated results directory
-    ├── solution.js        # Generated JavaScript code
-    ├── result.txt         # Human-readable results
-    └── result.json        # Structured results data
+├── .mcp.env.example        # MCP environment template
+├── .env.example            # General environment template
+├── examples/               # Sample outputs and examples
+├── .github/workflows/      # CI/CD pipeline
+└── output/                 # Generated results directory
+```
+
+## Advanced Usage
+
+### Custom Models
+
+Edit the compose files to use different models:
+
+```yaml
+# In compose.yaml for Docker Model Runner
+environment:
+  - MODEL_NAME=llama3.2:1b  # Smaller, faster model
+
+# In compose.openai.yaml for OpenAI
+environment:
+  - MODEL_NAME=gpt-4        # More powerful model
+```
+
+### Development Mode
+
+```bash
+# Build and run with verbose output
+docker compose up --build --verbose
+
+# Run without rebuilding
+docker compose up
+
+# Clean up everything
+docker compose down -v
+```
+
+### Custom Problems via File
+
+```bash
+# Create a problem file
+echo "Build a web scraper for parsing HTML" > my-problem.txt
+
+# Pass it to the agent
+PROBLEM="$(cat my-problem.txt)" docker compose up
 ```
 
 ## Why This Demo is Powerful
 
 Unlike complex multi-agent orchestrations, this minimal demo:
 
-- ✅ **Real agentic behavior** - AI writes AND tests code
-- ✅ **Safe execution** - Sandboxed Node.js containers  
-- ✅ **Immediate feedback** - See if the solution actually works
-- ✅ **Educational** - Learn from generated code and analysis
-- ✅ **Production patterns** - Shows real AI-code integration
-- ✅ **Minimal complexity** - Single agent, clear purpose
-- ✅ **Zero configuration** - Just set API key and run
+- ✅ **Multiple Model Options** - Local LLMs, OpenAI, or Docker Offload
+- ✅ **Real Agentic Behavior** - AI writes AND tests code
+- ✅ **Safe Execution** - Sandboxed Node.js containers  
+- ✅ **No API Required** - Default uses local models via Docker Model Runner
+- ✅ **Production Patterns** - Shows real AI-code integration
+- ✅ **Minimal Complexity** - Single agent, clear purpose
+- ✅ **Compose Best Practices** - Multiple compose files for different scenarios
 
 ## Technical Details
 
+### Model Providers
+
+1. **Docker Model Runner** (Default)
+   - Runs models locally using Docker
+   - No internet connection required
+   - GPU acceleration supported
+   - Models: llama3.2:3b, llama3.2:1b, etc.
+
+2. **OpenAI**
+   - Uses OpenAI's API
+   - Requires API key and internet
+   - Models: gpt-3.5-turbo, gpt-4, etc.
+
+3. **Docker Offload**
+   - Uses Docker's cloud model service
+   - Requires Docker Offload token
+   - Models: Various cloud-hosted options
+
 ### MCP Server Integration
 
-This demo uses [Alfonso Graziano's node-code-sandbox-mcp](https://github.com/alfonsograziano/node-code-sandbox-mcp) server, which provides:
+Uses [Alfonso Graziano's node-code-sandbox-mcp](https://github.com/alfonsograziano/node-code-sandbox-mcp):
 
 - Ephemeral Docker containers for code execution
 - npm dependency installation support  
@@ -201,38 +249,33 @@ This demo uses [Alfonso Graziano's node-code-sandbox-mcp](https://github.com/alf
 - Resource limits for security (CPU/memory controls)
 - Clean container teardown after execution
 
-### Security Considerations
-
-- Code executes in isolated Docker containers
-- Containers have resource limits (CPU/memory)
-- No persistent state between executions
-- Docker socket access limited to sandbox operations
-- Generated files are returned safely
-
 ## Troubleshooting
 
 ### Common Issues
 
+**"model-runner service not starting"**
+- Ensure Docker has GPU access enabled
+- Try with a smaller model: `MODEL_NAME=llama3.2:1b`
+- Use OpenAI instead: `docker compose -f compose.yaml -f compose.openai.yaml up`
+
 **"Failed to connect to sandbox"**
-- Ensure Docker is running
-- Check that Docker socket is accessible: `docker ps`
+- Ensure Docker is running: `docker ps`
+- Check Docker socket permissions
 
 **"Error generating code"**  
-- Verify OpenAI API key is set correctly
-- Check API key has sufficient credits
-
-**"Permission denied"**
-- Ensure Docker socket permissions: `sudo chmod 666 /var/run/docker.sock` (Linux)
+- For OpenAI: Verify API key and credits
+- For Docker Model Runner: Check model download progress
+- For Docker Offload: Verify token validity
 
 **Empty output files**
-- Check Docker logs: `docker-compose logs coding-agent`
+- Check logs: `docker compose logs coding-agent`
 - Verify the problem statement is clear
 
-### Getting Help
+### Performance Tips
 
-1. Check the [Issues](https://github.com/ajeetraina/minimal-agentic-compose/issues) page
-2. Review Docker and OpenAI documentation
-3. Join the [Docker Community](https://www.docker.com/community/)
+- **Local Models**: Use GPU-enabled Docker for faster inference
+- **OpenAI**: Use gpt-3.5-turbo for faster responses
+- **Docker Offload**: Choose appropriate model size for your needs
 
 ## Contributing
 
@@ -247,7 +290,8 @@ This project is dual-licensed under the [MIT License](LICENSE-MIT) or [Apache Li
 - [Docker Compose for Agents](https://github.com/docker/compose-for-agents) - Collection of AI agent demos
 - [Alfonso Graziano's Node.js Sandbox MCP](https://github.com/alfonsograziano/node-code-sandbox-mcp) - The MCP server used in this demo
 - [Model Context Protocol](https://modelcontextprotocol.io/) - The protocol standard
+- [Docker Model Runner](https://docs.docker.com/ai/model-runner/) - Local model execution
 
 ---
 
-**Perfect for learning agentic patterns without complexity!** 🚀
+**Perfect for learning agentic patterns with real model flexibility!** 🚀

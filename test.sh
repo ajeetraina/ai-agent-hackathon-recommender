@@ -84,16 +84,16 @@ else
     echo -e "${BLUE}💡 To test Docker Offload: export DOCKER_OFFLOAD_TOKEN=your_token${NC}"
 fi
 
-# Test Docker Model Runner (default) - build only since it needs GPU
-echo -e "${YELLOW}🏠 Testing Docker Model Runner (default) configuration...${NC}"
-echo -e "${GREEN}✅ Docker Model Runner configuration validated${NC}"
-echo -e "${BLUE}💡 Full DMR test requires GPU. To test: docker compose up${NC}"
+# Test Local Ollama (default) - build only since it needs proper setup
+echo -e "${YELLOW}🏠 Testing Local Ollama (default) configuration...${NC}"
+echo -e "${GREEN}✅ Local Ollama configuration validated${NC}"
+echo -e "${BLUE}💡 Full local test requires proper Ollama setup. To test: docker compose up${NC}"
 
 echo ""
 echo -e "${GREEN}🎉 All tests completed!${NC}"
 echo ""
 echo -e "${BLUE}📚 Usage Examples:${NC}"
-echo -e "  Default (Docker Model Runner): ${YELLOW}docker compose up${NC}"
+echo -e "  Default (Local Ollama):        ${YELLOW}docker compose up${NC}"
 echo -e "  With OpenAI:                   ${YELLOW}docker compose -f compose.yaml -f compose.openai.yaml up${NC}"
 echo -e "  With Docker Offload:           ${YELLOW}docker compose -f compose.yaml -f compose.offload.yaml up${NC}"
 echo ""

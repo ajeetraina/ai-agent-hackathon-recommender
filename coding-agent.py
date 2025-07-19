@@ -2,17 +2,49 @@
 """
 Minimal Node.js Agentic Compose Demo
 An AI agent that solves coding problems using Alfonso Graziano's Node.js sandbox.
+Supports Docker Model Runner, OpenAI, and Docker Offload.
 """
 
 import os
 import json
 import subprocess
-from openai import OpenAI
+import requests
 from datetime import datetime
+
+def create_ai_client():
+    """Create appropriate AI client based on MODEL_PROVIDER"""
+    provider = os.getenv('MODEL_PROVIDER', 'docker-model-runner').lower()
+    
+    if provider == 'openai':
+        from openai import OpenAI
+        return OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
+    
+    elif provider == 'docker-model-runner':
+        from openai import OpenAI
+        model_url = os.getenv('MODEL_URL', 'http://model-runner:11434/v1')
+        return OpenAI(
+            base_url=model_url,
+            api_key="dummy-key"  # Docker Model Runner doesn't need real API key
+        )
+    
+    elif provider == 'docker-offload':
+        from openai import OpenAI
+        model_url = os.getenv('MODEL_URL', 'https://docker.com/api/v1/models')
+        token = os.getenv('DOCKER_OFFLOAD_TOKEN')
+        if not token:
+            raise ValueError("DOCKER_OFFLOAD_TOKEN is required for Docker Offload")
+        return OpenAI(
+            base_url=model_url,
+            api_key=token
+        )
+    
+    else:
+        raise ValueError(f"Unsupported MODEL_PROVIDER: {provider}")
 
 def generate_code_solution(problem):
     """Generate JavaScript code to solve the given problem"""
-    client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
+    client = create_ai_client()
+    model_name = os.getenv('MODEL_NAME', 'gpt-3.5-turbo')
     
     prompt = f"""
     Write JavaScript code to solve this problem: {problem}
@@ -30,7 +62,7 @@ def generate_code_solution(problem):
     
     try:
         response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
+            model=model_name,
             messages=[{"role": "user", "content": prompt}],
             max_tokens=800,
             temperature=0.3
@@ -119,7 +151,8 @@ def execute_code_in_sandbox(code):
 
 def analyze_results(problem, code, execution_result):
     """Analyze the code execution results"""
-    client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
+    client = create_ai_client()
+    model_name = os.getenv('MODEL_NAME', 'gpt-3.5-turbo')
     
     if execution_result['success']:
         status = "✅ Success"
@@ -148,7 +181,7 @@ def analyze_results(problem, code, execution_result):
     
     try:
         response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
+            model=model_name,
             messages=[{"role": "user", "content": analysis_prompt}],
             max_tokens=200,
             temperature=0.3
@@ -159,9 +192,13 @@ def analyze_results(problem, code, execution_result):
 
 def main():
     problem = os.getenv('PROBLEM', 'Calculate the first 10 Fibonacci numbers')
+    provider = os.getenv('MODEL_PROVIDER', 'docker-model-runner')
+    model_name = os.getenv('MODEL_NAME', 'gpt-3.5-turbo')
     
     print(f"🤖 Coding Agent Starting...")
     print(f"📝 Problem: {problem}")
+    print(f"🔧 Model Provider: {provider}")
+    print(f"🧠 Model: {model_name}")
     print(f"🔧 Using Alfonso Graziano's Node.js Sandbox MCP Server")
     
     # Create output directories
@@ -190,6 +227,8 @@ def main():
     with open('/app/output/solution.js', 'w') as f:
         f.write(f"// Problem: {problem}\n")
         f.write(f"// Generated: {datetime.now().isoformat()}\n")
+        f.write(f"// Model Provider: {provider}\n")
+        f.write(f"// Model: {model_name}\n")
         f.write(f"// MCP Server: Alfonso Graziano's node-code-sandbox\n\n")
         f.write(code)
     
@@ -197,6 +236,8 @@ def main():
     result_data = {
         'timestamp': datetime.now().isoformat(),
         'problem': problem,
+        'model_provider': provider,
+        'model_name': model_name,
         'code': code,
         'execution': execution_result,
         'analysis': analysis,
@@ -210,6 +251,8 @@ def main():
     with open('/app/output/result.txt', 'w') as f:
         f.write(f"Coding Problem: {problem}\n")
         f.write(f"Timestamp: {result_data['timestamp']}\n")
+        f.write(f"Model Provider: {provider}\n")
+        f.write(f"Model: {model_name}\n")
         f.write(f"MCP Server: Alfonso Graziano's node-code-sandbox\n")
         f.write("=" * 60 + "\n\n")
         

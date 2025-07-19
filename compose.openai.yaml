@@ -1,0 +1,19 @@
+services:
+  agents:
+    environment:
+      # Override to use OpenAI models instead of local Model Runner
+      - OPENAI_API_KEY_FILE=/run/secrets/openai-api-key
+    models: !override
+      gpt-4o:
+        endpoint_var: OPENAI_API_BASE
+        model_var: OPENAI_MODEL
+        env:
+          OPENAI_API_BASE: https://api.openai.com/v1
+          OPENAI_MODEL: gpt-4o
+    secrets:
+      - openai-api-key
+models: !reset
+  # No local models needed when using OpenAI
+secrets:
+  openai-api-key:
+    file: ./secret.openai-api-key

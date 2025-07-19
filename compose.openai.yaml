@@ -1,5 +1,5 @@
 services:
-  # Override coding-agent to use OpenAI instead of Docker Model Runner
+  # Override coding-agent to use OpenAI instead of local model
   coding-agent:
     environment:
       - PROBLEM=${PROBLEM:-Calculate the first 10 Fibonacci numbers}
@@ -9,8 +9,8 @@ services:
     depends_on:
       - node-sandbox
       
-  # Disable model-runner service when using OpenAI
-  model-runner:
+  # Disable local model service when using OpenAI
+  model:
     profiles:
       - disabled
 

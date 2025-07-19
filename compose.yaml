@@ -3,27 +3,39 @@ services:
     build: .
     environment:
       - PROBLEM=${PROBLEM:-Calculate the first 10 Fibonacci numbers}
-      - MODEL_PROVIDER=${MODEL_PROVIDER:-local}
-      - MODEL_NAME=${MODEL_NAME:-llama3.2:3b}
+      - MODEL_PROVIDER=${MODEL_PROVIDER:-docker-model-runner}
+      - MODEL_RUNNER_URL=http://model-runner:8000
+      - MODEL_RUNNER_MODEL=qwen3-small
     volumes:
       - ./output:/app/output
       - ./sandbox-output:/app/sandbox-output
       - /var/run/docker.sock:/var/run/docker.sock
+    models:
+      qwen3-small:
+        endpoint_var: MODEL_RUNNER_URL
+        model_var: MODEL_RUNNER_MODEL
     depends_on:
-      - model
+      - mcp-gateway
 
-  model:
-    image: ollama/ollama:latest
+  mcp-gateway:
+    image: docker/mcp-gateway:latest
     ports:
-      - "11434:11434"
-    volumes:
-      - ollama_data:/root/.ollama
-    environment:
-      - OLLAMA_HOST=0.0.0.0
+      - "8811:8811"
+    use_api_socket: true
+    command:
+      - --secrets=/run/secrets/mcp_secret
+      - --servers=node-sandbox
+    secrets:
+      - mcp_secret
 
-volumes:
-  ollama_data:
+models:
+  qwen3-small:
+    model: ai/qwen3:8B-Q4_0 # 4.44 GB
+    context_size: 15000 # 7 GB VRAM
+  qwen3-medium:
+    model: ai/qwen3:14B-Q6_K # 11.28 GB
+    context_size: 15000 # 15 GB VRAM
 
-# Usage:
-# Default (local models): docker compose up --build
-# With custom problem: PROBLEM="Your coding problem" docker compose up --build
+secrets:
+  mcp_secret:
+    file: ./.mcp.env

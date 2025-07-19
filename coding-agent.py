@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Minimal Node.js Agentic Compose Demo
-An AI agent that solves coding problems using Node.js sandbox execution.
+An AI agent that solves coding problems using Node.js sandbox MCP server.
 Supports Docker Model Runner (local models), OpenAI, and Docker Offload.
 """
 
@@ -92,43 +92,131 @@ def generate_code_solution(problem):
     except Exception as e:
         return f"// Error generating code: {e}"
 
-def execute_code_in_nodejs_container(code):
-    """Execute JavaScript code directly in a Node.js container"""
+def execute_code_via_mcp_gateway(code):
+    """Execute JavaScript code using MCP Gateway with node-code-sandbox server"""
     try:
-        # Create a temporary directory for output
-        os.makedirs('/app/sandbox-output', exist_ok=True)
+        mcp_gateway_url = os.getenv('MCPGATEWAY_URL', 'http://mcp-gateway:8811')
         
-        # Run code in a Node.js container with volume mounts
+        # Create MCP request for node-code-sandbox server
+        mcp_request = {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "tools/call",
+            "params": {
+                "name": "run_js",
+                "arguments": {
+                    "code": code
+                }
+            }
+        }
+        
+        # Send request to MCP Gateway
+        response = requests.post(
+            f"{mcp_gateway_url}/mcp",
+            json=mcp_request,
+            timeout=60,
+            headers={'Content-Type': 'application/json'}
+        )
+        
+        if response.status_code == 200:
+            result = response.json()
+            if "result" in result:
+                return {
+                    'success': True,
+                    'output': result["result"].get('content', ''),
+                    'error': '',
+                    'execution_time': 0
+                }
+            else:
+                return {
+                    'success': False,
+                    'error': f"MCP Error: {result.get('error', 'Unknown error')}",
+                    'output': ''
+                }
+        else:
+            return {
+                'success': False,
+                'error': f"HTTP {response.status_code}: {response.text}",
+                'output': ''
+            }
+            
+    except requests.exceptions.Timeout:
+        return {
+            'success': False,
+            'error': "Execution timed out (60s limit)",
+            'output': ''
+        }
+    except Exception as e:
+        return {
+            'success': False,
+            'error': f"Failed to execute code via MCP Gateway: {e}",
+            'output': ''
+        }
+
+def execute_code_direct_docker(code):
+    """Fallback: Execute JavaScript code directly using Docker node-code-sandbox"""
+    try:
+        # Run the node-code-sandbox MCP server via Docker with the code
         docker_cmd = [
             "docker", "run", "--rm", "-i",
-            "-v", f"{os.getcwd()}/sandbox-output:/output",
-            "-w", "/output",
-            "node:lts-alpine",
-            "node", "-e", code
+            "-v", "/var/run/docker.sock:/var/run/docker.sock",
+            "-v", f"{os.getcwd()}/sandbox-output:/root",
+            "-e", "FILES_DIR=/root",
+            "mcp/node-code-sandbox"
         ]
         
-        # Execute the JavaScript code
+        # Create MCP request for execution
+        mcp_request = {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "tools/call",
+            "params": {
+                "name": "run_js",
+                "arguments": {
+                    "code": code
+                }
+            }
+        }
+        
+        # Execute the request
         process = subprocess.run(
             docker_cmd,
-            capture_output=True,
+            input=json.dumps(mcp_request),
             text=True,
+            capture_output=True,
             timeout=60
         )
         
         if process.returncode == 0:
-            return {
-                'success': True,
-                'output': process.stdout,
-                'error': process.stderr if process.stderr else '',
-                'execution_time': 0
-            }
+            try:
+                response = json.loads(process.stdout)
+                if "result" in response:
+                    result = response["result"]
+                    return {
+                        'success': True,
+                        'output': result.get('content', [{}])[0].get('text', ''),
+                        'error': '',
+                        'execution_time': 0
+                    }
+                else:
+                    return {
+                        'success': False,
+                        'error': f"MCP Error: {response.get('error', 'Unknown error')}",
+                        'output': ''
+                    }
+            except json.JSONDecodeError:
+                return {
+                    'success': True,
+                    'output': process.stdout,
+                    'error': process.stderr,
+                    'execution_time': 0
+                }
         else:
             return {
                 'success': False,
-                'error': f"Execution failed: {process.stderr}",
+                'error': f"Docker process failed: {process.stderr}",
                 'output': process.stdout
             }
-            
     except subprocess.TimeoutExpired:
         return {
             'success': False,
@@ -141,6 +229,18 @@ def execute_code_in_nodejs_container(code):
             'error': f"Failed to execute code: {e}",
             'output': ''
         }
+
+def execute_code_in_sandbox(code):
+    """Execute JavaScript code using MCP Gateway or fallback to direct Docker"""
+    # Try MCP Gateway first
+    result = execute_code_via_mcp_gateway(code)
+    
+    # If MCP Gateway fails, fallback to direct Docker execution
+    if not result['success'] and ('MCP Gateway' in result['error'] or 'HTTP' in result['error']):
+        print("⚠️ MCP Gateway failed, falling back to direct Docker execution...")
+        result = execute_code_direct_docker(code)
+    
+    return result
 
 def analyze_results(problem, code, execution_result):
     """Analyze the code execution results"""
@@ -197,7 +297,7 @@ def main():
     print(f"📝 Problem: {problem}")
     print(f"🔧 Model Provider: {provider}")
     print(f"🧠 Model: {model_name}")
-    print(f"🔧 Using Direct Node.js Container Execution")
+    print(f"🔧 Using Node.js Sandbox via MCP Gateway (node-code-sandbox)")
     
     # Create output directories
     os.makedirs('/app/output', exist_ok=True)
@@ -217,9 +317,9 @@ def main():
     
     print("✅ Code generated successfully")
     
-    # Execute code in Node.js container
-    print("🏃 Executing code in Node.js container...")
-    execution_result = execute_code_in_nodejs_container(code)
+    # Execute code in sandbox
+    print("🏃 Executing code in Node.js sandbox...")
+    execution_result = execute_code_in_sandbox(code)
     
     # Analyze results
     print("🔍 Analyzing results...")
@@ -231,7 +331,7 @@ def main():
         f.write(f"// Generated: {datetime.now().isoformat()}\n")
         f.write(f"// Model Provider: {provider}\n")
         f.write(f"// Model: {model_name}\n")
-        f.write(f"// Execution: Direct Node.js Container\n\n")
+        f.write(f"// MCP Server: node-code-sandbox via MCP Gateway\n\n")
         f.write(code)
     
     # Save execution results and analysis
@@ -243,7 +343,7 @@ def main():
         'code': code,
         'execution': execution_result,
         'analysis': analysis,
-        'execution_method': 'Direct Node.js Container'
+        'mcp_server': 'node-code-sandbox via MCP Gateway'
     }
     
     with open('/app/output/result.json', 'w') as f:
@@ -255,7 +355,7 @@ def main():
         f.write(f"Timestamp: {result_data['timestamp']}\n")
         f.write(f"Model Provider: {provider}\n")
         f.write(f"Model: {model_name}\n")
-        f.write(f"Execution Method: Direct Node.js Container\n")
+        f.write(f"MCP Server: node-code-sandbox via MCP Gateway\n")
         f.write("=" * 60 + "\n\n")
         
         f.write("Generated Code:\n")

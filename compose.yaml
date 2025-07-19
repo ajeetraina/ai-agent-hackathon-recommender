@@ -3,9 +3,10 @@ services:
     build: .
     environment:
       - PROBLEM=${PROBLEM:-Calculate the first 10 Fibonacci numbers}
-      - MODEL_PROVIDER=${MODEL_PROVIDER:-docker-model-runner}
-      - MODEL_RUNNER_URL=http://model-runner:8000
+      - MODEL_PROVIDER=docker-model-runner
+      - MODEL_RUNNER_URL=http://localhost:8000
       - MODEL_RUNNER_MODEL=qwen3-small
+      - MCPGATEWAY_URL=http://mcp-gateway:8811
     volumes:
       - ./output:/app/output
       - ./sandbox-output:/app/sandbox-output

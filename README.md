@@ -1,13 +1,12 @@
 # Minimal Agentic Compose
 
-A minimal Docker Compose setup for building AI agents with Node.js code execution capabilities using Docker Model Runner, MCP Gateway, and Node.js Sandbox.
+A minimal Docker Compose setup for building AI agents with Node.js code execution capabilities using Docker Model Runner and direct container execution.
 
 ## Features
 
 - **Coding Agent**: AI agent that solves coding problems using JavaScript/Node.js
 - **Docker Model Runner**: Local LLM execution with GPU acceleration (no API keys needed)
-- **MCP Gateway**: Secure gateway for Model Context Protocol servers
-- **Node.js Sandbox**: Safe code execution environment via MCP
+- **Direct Node.js Execution**: Safe code execution in isolated Node.js containers
 - **Multiple Deployment Options**: Local models, OpenAI, and Docker Offload
 
 ## Quick Start
@@ -54,7 +53,7 @@ PROBLEM="Generate a sorting algorithm comparison" docker compose -f compose.yaml
 ```
 🤖 Coding Agent → 🧠 Docker Model Runner (Local LLM) → 📝 Generate Code
        ↓
-🔒 MCP Gateway → 🏃 Node.js Sandbox → ⚡ Execute Code → 📊 Return Results  
+🐳 Node.js Container → ⚡ Execute Code → 📊 Return Results  
        ↓
 🔍 AI Analysis → 💾 Save Files (./output/)
 ```
@@ -64,7 +63,6 @@ PROBLEM="Generate a sorting algorithm comparison" docker compose -f compose.yaml
 | Service | Port | Description |
 |---------|------|-------------|
 | **coding-agent** | - | Main AI agent that generates and executes code |
-| **mcp-gateway** | 8811 | Secure gateway managing node-sandbox MCP server |
 
 ## Models
 
@@ -158,17 +156,18 @@ docker run --rm --gpus all nvidia/cuda:12.4.0-runtime-ubuntu22.04 nvidia-smi
 
 1. **Problem Input**: You provide a coding problem via the `PROBLEM` environment variable
 2. **Code Generation**: The AI agent generates JavaScript code using your chosen model
-3. **Safe Execution**: Code runs in an isolated Node.js container via MCP Gateway
+3. **Safe Execution**: Code runs in an isolated Node.js container with controlled access
 4. **Analysis**: The AI analyzes results and provides insights
 5. **Output**: Generated code, execution results, and analysis are saved locally
 
 ## Technical Details
 
-### MCP Integration
+### Code Execution
 
-- **MCP Gateway**: Securely manages the node-sandbox MCP server
-- **Node.js Sandbox**: Provides isolated JavaScript execution environment
-- **Docker API Socket**: Allows MCP Gateway to manage sandbox containers
+- **Isolated Containers**: Each code execution runs in a fresh Node.js container
+- **Volume Mounts**: Safe file system access for generated files
+- **Resource Limits**: Automatic timeout and resource controls
+- **Docker Socket Access**: Required for creating execution containers
 
 ### Model Integration
 
@@ -186,8 +185,6 @@ minimal-agentic-compose/
 ├── coding-agent.py          # Multi-provider AI agent
 ├── Dockerfile              # Agent container definition
 ├── requirements.txt         # Python dependencies
-├── agents.yaml             # Agent configuration
-├── .mcp.env               # MCP environment (no secrets needed)
 ├── output/                 # Generated results directory
 └── sandbox-output/         # Files created by executed code
 ```
@@ -201,13 +198,10 @@ minimal-agentic-compose/
 - Try smaller model: Use `qwen3-small` instead of `qwen3-medium`
 - Check available VRAM: `nvidia-smi` (NVIDIA) or Activity Monitor (macOS)
 
-**MCP Gateway connection failed:**
-- Verify Docker socket access: `docker ps` should work
-- Check MCP Gateway logs: `docker compose logs mcp-gateway`
-
 **Code execution fails:**
-- Check sandbox container logs: `docker compose logs coding-agent`
-- Verify Docker socket permissions
+- Check Docker socket access: `docker ps` should work
+- Verify container permissions for volume mounts
+- Check timeout settings (default 60s)
 
 **OpenAI authentication:**
 - Verify API key: `echo $OPENAI_API_KEY`
@@ -234,6 +228,7 @@ minimal-agentic-compose/
 // Generated: 2025-07-19T10:30:45Z
 // Model Provider: docker-model-runner
 // Model: qwen3-small
+// Execution: Direct Node.js Container
 
 function fibonacci(n) {
     const sequence = [0, 1];
@@ -248,7 +243,7 @@ console.log("First 10 Fibonacci numbers:", result);
 ```
 
 **Execution Result:** ✅ SUCCESS  
-**Output:** `First 10 Fibonacci numbers: [0,1,1,2,3,5,8,13,21,34]`  
+**Output:** `First 10 Fibonacci numbers: [ 0, 1, 1, 2, 3, 5, 8, 13, 21, 34 ]`  
 **AI Analysis:** "The solution correctly implements the Fibonacci sequence using an iterative approach. Clean, efficient code with proper output."
 
 ## Contributing
@@ -264,7 +259,6 @@ This project is dual-licensed under the [MIT License](LICENSE-MIT) or [Apache Li
 - [Docker Compose for Agents](https://github.com/docker/compose-for-agents) - Official collection of AI agent demos
 - [Docker Model Runner](https://docs.docker.com/ai/model-runner/) - Local model execution documentation
 - [Model Context Protocol](https://modelcontextprotocol.io/) - Protocol for AI-tool integration
-- [Alfonso Graziano's Node.js Sandbox MCP](https://github.com/alfonsograziano/node-code-sandbox-mcp) - The MCP server used for code execution
 
 ---
 

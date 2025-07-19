@@ -1,0 +1,21 @@
+services:
+  # Override coding-agent to use OpenAI instead of Docker Model Runner
+  coding-agent:
+    environment:
+      - PROBLEM=${PROBLEM:-Calculate the first 10 Fibonacci numbers}
+      - MODEL_PROVIDER=openai
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - MODEL_NAME=gpt-3.5-turbo
+    depends_on:
+      - node-sandbox
+      
+  # Disable model-runner service when using OpenAI
+  model-runner:
+    profiles:
+      - disabled
+
+# Usage with OpenAI:
+# 1. Create secret.openai-api-key file with your API key:
+#    echo "sk-your-api-key-here" > secret.openai-api-key
+# 2. Run with OpenAI configuration:
+#    docker compose -f compose.yaml -f compose.openai.yaml up --build

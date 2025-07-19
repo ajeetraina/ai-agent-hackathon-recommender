@@ -1,0 +1,12 @@
+# Agents Configuration
+# This file configures the AI agents for the minimal agentic compose demo
+
+agents:
+  coding-agent:
+    name: "Node.js Coding Agent"
+    description: "AI agent that solves coding problems using Node.js sandbox execution"
+    model: "qwen3-small"
+    tools:
+      - node-sandbox
+    max_tokens: 800
+    temperature: 0.3

@@ -4,16 +4,19 @@ services:
     environment:
       - PROBLEM=${PROBLEM:-Calculate the first 10 Fibonacci numbers}
       - MODEL_PROVIDER=docker-model-runner
-      # FIXED: Use correct Docker Model Runner endpoint with port 12434
-      - OPENAI_BASE_URL=http://host.docker.internal:12434/v1
+      # FIXED: Use correct Docker Model Runner endpoint from official docs
+      - OPENAI_BASE_URL=http://model-runner.docker.internal:12434/engines/llama.cpp/v1
       - OPENAI_API_KEY=irrelevant
-      - MODEL_NAME=llama.cpp
+      - MODEL_NAME=ai/qwen3:8B-Q4_0
       - MCPGATEWAY_URL=http://mcp-gateway:8811
     volumes:
       - ./output:/app/output
       - ./sandbox-output:/app/sandbox-output
     depends_on:
       - mcp-gateway
+    # Add extra_hosts for proper container networking (from official docs)
+    extra_hosts:
+      - "model-runner.docker.internal:host-gateway"
 
   mcp-gateway:
     image: docker/mcp-gateway:latest

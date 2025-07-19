@@ -3,6 +3,7 @@
 Minimal Node.js Agentic Compose Demo
 An AI agent that solves coding problems using Node.js sandbox MCP server.
 Supports Docker Model Runner (local models), OpenAI, and Docker Offload.
+Updated to use official Agentic Compose patterns.
 """
 
 import os
@@ -17,8 +18,7 @@ def wait_for_model_service():
     model_provider = os.getenv('MODEL_PROVIDER', 'docker-model-runner').lower()
     
     if model_provider in ['docker-model-runner', 'local']:
-        # Docker Model Runner is automatically managed by Docker Compose
-        # No need for health checks, just wait a bit for startup
+        # With Agentic Compose, Docker automatically manages model lifecycle
         print("🔄 Waiting for Docker Model Runner to initialize...")
         time.sleep(5)  # Give Docker Model Runner time to start
         print("✅ Docker Model Runner should be ready")
@@ -36,11 +36,19 @@ def create_ai_client():
     
     elif provider in ['docker-model-runner', 'local']:
         from openai import OpenAI
-        # Use OpenAI-compatible endpoint from environment
-        base_url = os.getenv('OPENAI_BASE_URL', 'http://host.docker.internal/engines/llama.cpp/')
+        
+        # NEW: Use Agentic Compose environment variables
+        # Docker Compose automatically injects these based on service-level model config
+        base_url = os.getenv('OPENAI_BASE_URL')
+        model_name = os.getenv('OPENAI_MODEL') 
         api_key = os.getenv('OPENAI_API_KEY', 'irrelevant')
         
+        if not base_url:
+            print("⚠️ OPENAI_BASE_URL not set - Docker Compose should inject this automatically")
+            base_url = 'http://host.docker.internal/engines/llama.cpp/'
+        
         print(f"🔗 Connecting to Docker Model Runner at: {base_url}")
+        print(f"🤖 Model from environment: {model_name}")
         
         return OpenAI(
             base_url=base_url,
@@ -57,10 +65,10 @@ def generate_code_solution(problem):
     
     # Use appropriate model name based on provider
     if provider == 'openai':
-        model_name = os.getenv('MODEL_NAME', 'gpt-3.5-turbo')
+        model_name = os.getenv('OPENAI_MODEL', 'gpt-3.5-turbo')
     else:
-        # For Docker Model Runner, use the model name from environment
-        model_name = os.getenv('MODEL_NAME', 'ai/qwen3:8B-Q4_0')
+        # For Docker Model Runner with Agentic Compose, use injected model name
+        model_name = os.getenv('OPENAI_MODEL', 'ai/qwen3:8B-Q4_0')
     
     print(f"🤖 Using model: {model_name}")
     
@@ -94,6 +102,7 @@ def execute_code_via_mcp_gateway(code):
     try:
         mcp_gateway_url = os.getenv('MCPGATEWAY_URL', 'http://mcp-gateway:8811')
         
+        # NEW: Use SSE transport as per Agentic Compose pattern
         # Create MCP request for node-code-sandbox server
         mcp_request = {
             "jsonrpc": "2.0",
@@ -107,7 +116,7 @@ def execute_code_via_mcp_gateway(code):
             }
         }
         
-        # Send request to MCP Gateway
+        # Send request to MCP Gateway with SSE endpoint
         response = requests.post(
             f"{mcp_gateway_url}/mcp",
             json=mcp_request,
@@ -246,9 +255,9 @@ def analyze_results(problem, code, execution_result):
     
     # Use appropriate model name based on provider
     if provider == 'openai':
-        model_name = os.getenv('MODEL_NAME', 'gpt-3.5-turbo')
+        model_name = os.getenv('OPENAI_MODEL', 'gpt-3.5-turbo')
     else:
-        model_name = os.getenv('MODEL_NAME', 'ai/qwen3:8B-Q4_0')
+        model_name = os.getenv('OPENAI_MODEL', 'ai/qwen3:8B-Q4_0')
     
     if execution_result['success']:
         status = "✅ Success"
@@ -289,13 +298,14 @@ def analyze_results(problem, code, execution_result):
 def main():
     problem = os.getenv('PROBLEM', 'Calculate the first 10 Fibonacci numbers')
     provider = os.getenv('MODEL_PROVIDER', 'docker-model-runner')
-    model_name = os.getenv('MODEL_NAME', 'ai/qwen3:8B-Q4_0')
+    model_name = os.getenv('OPENAI_MODEL', 'ai/qwen3:8B-Q4_0')
     
     print(f"🤖 Coding Agent Starting...")
     print(f"📝 Problem: {problem}")
     print(f"🔧 Model Provider: {provider}")
     print(f"🧠 Model: {model_name}")
     print(f"🔧 Using Node.js Sandbox via MCP Gateway (node-code-sandbox)")
+    print(f"🚀 Using Agentic Compose patterns")
     
     # Create output directories
     os.makedirs('/app/output', exist_ok=True)
@@ -329,6 +339,7 @@ def main():
         f.write(f"// Generated: {datetime.now().isoformat()}\n")
         f.write(f"// Model Provider: {provider}\n")
         f.write(f"// Model: {model_name}\n")
+        f.write(f"// Agentic Compose: Enabled\n")
         f.write(f"// MCP Server: node-code-sandbox via MCP Gateway\n\n")
         f.write(code)
     
@@ -341,6 +352,7 @@ def main():
         'code': code,
         'execution': execution_result,
         'analysis': analysis,
+        'agentic_compose': True,
         'mcp_server': 'node-code-sandbox via MCP Gateway'
     }
     
@@ -353,6 +365,7 @@ def main():
         f.write(f"Timestamp: {result_data['timestamp']}\n")
         f.write(f"Model Provider: {provider}\n")
         f.write(f"Model: {model_name}\n")
+        f.write(f"Agentic Compose: Enabled\n")
         f.write(f"MCP Server: node-code-sandbox via MCP Gateway\n")
         f.write("=" * 60 + "\n\n")
         

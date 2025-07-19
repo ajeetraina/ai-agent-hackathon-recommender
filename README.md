@@ -1,45 +1,27 @@
 # Minimal Agentic Compose
 
-A truly minimal agentic system that **solves coding problems** using AI + Node.js code execution. This demonstrates real agentic behavior where the AI writes, tests, and analyzes code using Docker Compose orchestration.
+A minimal Docker Compose setup for building AI agents with Node.js code execution capabilities using Docker Model Runner, MCP Gateway, and Node.js Sandbox.
 
-[![License: MIT OR Apache-2.0](https://img.shields.io/badge/License-MIT%20OR%20Apache--2.0-blue.svg)](LICENSE)
-[![Docker](https://img.shields.io/badge/Docker-Required-blue.svg)](https://www.docker.com/)
+## Features
 
-## What It Does
-
-This demo showcases a complete agentic workflow:
-
-1. 🧠 **Takes a coding problem** (e.g., "Sort array by date")
-2. 💡 **AI generates JavaScript solution** using local LLM (Docker Model Runner) or OpenAI
-3. 🏃 **Executes code safely** in Node.js sandbox container  
-4. 📊 **Analyzes results** and provides intelligent feedback
-5. 💾 **Saves code + results** for review
-
-## Architecture
-
-```
-🤖 Coding Agent → 🧠 LLM (DMR/OpenAI/Offload) → 📝 Generate Code
-       ↓
-🏃 Node.js Sandbox → ⚡ Execute → 📊 Return Results  
-       ↓
-🔍 AI Analysis → 💾 Save Files
-```
-
-**MCP Server Used:** [Alfonso Graziano's node-code-sandbox-mcp](https://github.com/alfonsograziano/node-code-sandbox-mcp)
-
-## Prerequisites
-
-- [Docker Desktop](https://www.docker.com/products/docker-desktop/) 4.43.0+ or [Docker Engine](https://docs.docker.com/engine/)
-- A laptop or workstation with a GPU (e.g., a MacBook) for running open models locally
-- If you don't have a GPU, you can use [Docker Offload](https://www.docker.com/products/docker-offload) or OpenAI
-- If using Docker Engine on Linux, ensure [Docker Model Runner requirements](https://docs.docker.com/ai/model-runner/) are met
+- **Coding Agent**: AI agent that solves coding problems using JavaScript/Node.js
+- **Docker Model Runner**: Local LLM execution with GPU acceleration (no API keys needed)
+- **MCP Gateway**: Secure gateway for Model Context Protocol servers
+- **Node.js Sandbox**: Safe code execution environment via MCP
+- **Multiple Deployment Options**: Local models, OpenAI, and Docker Offload
 
 ## Quick Start
 
-### Method 1: Local Models (Default - Docker Model Runner)
+### Prerequisites
+
+- [Docker Desktop 4.43.0+](https://www.docker.com/products/docker-desktop/) or [Docker Engine](https://docs.docker.com/engine/) with Docker Compose 2.38.1+
+- For local models: GPU recommended (MacBook M-series, NVIDIA GPU, etc.)
+- For Docker Offload: Enable in Docker Desktop Settings > Beta Features
+
+### 1. Default Setup (Docker Model Runner - Local Models)
 
 ```bash
-# Clone and setup
+# Clone the repository
 git clone https://github.com/ajeetraina/minimal-agentic-compose.git
 cd minimal-agentic-compose
 
@@ -47,109 +29,152 @@ cd minimal-agentic-compose
 PROBLEM="Create a function to find prime numbers under 100" docker compose up --build
 ```
 
-### Method 2: OpenAI Models
+### 2. OpenAI Setup
 
 ```bash
 # Set your OpenAI API key
-echo "sk-your_openai_api_key_here" > secret.openai-api-key
-
-# Or set environment variable
 export OPENAI_API_KEY=your_openai_api_key_here
 
-# Run with OpenAI
-PROBLEM="Implement binary search" docker compose -f compose.yaml -f compose.openai.yaml up --build
+# Run with OpenAI models
+PROBLEM="Implement binary search algorithm" OPENAI_API_KEY=$OPENAI_API_KEY docker compose -f compose.yaml -f compose.openai.yaml up --build
 ```
 
-### Method 3: Docker Offload
+### 3. Docker Offload Setup (Cloud GPU)
 
 ```bash
-# Set your Docker Offload token
-export DOCKER_OFFLOAD_TOKEN=your_token_here
+# Enable Docker Offload in Docker Desktop Settings > Beta Features
+# Or via CLI: docker offload start
 
-# Run with Docker Offload
-PROBLEM="Generate JSON data" docker compose -f compose.yaml -f compose.offload.yaml up --build
+# Run with Docker Offload (larger models on cloud GPU)
+PROBLEM="Generate a sorting algorithm comparison" docker compose -f compose.yaml -f compose.offload.yaml up --build
 ```
 
-## Configuration Options
+## Architecture
 
-The demo supports multiple configuration methods:
-
-### Environment Variables
-```bash
-# Create .mcp.env from template
-cp .mcp.env.example .mcp.env
-# Edit .mcp.env with your settings
-
-# Or set variables directly
-PROBLEM="Your coding problem" docker compose up
+```
+🤖 Coding Agent → 🧠 Docker Model Runner (Local LLM) → 📝 Generate Code
+       ↓
+🔒 MCP Gateway → 🏃 Node.js Sandbox → ⚡ Execute Code → 📊 Return Results  
+       ↓
+🔍 AI Analysis → 💾 Save Files (./output/)
 ```
 
-### Model Providers
+## Services
 
-| Provider | Compose Command | Requirements |
-|----------|----------------|--------------|
-| **Docker Model Runner** (Default) | `docker compose up` | Local GPU recommended |
-| **OpenAI** | `docker compose -f compose.yaml -f compose.openai.yaml up` | OpenAI API key |
-| **Docker Offload** | `docker compose -f compose.yaml -f compose.offload.yaml up` | Docker Offload token |
+| Service | Port | Description |
+|---------|------|-------------|
+| **coding-agent** | - | Main AI agent that generates and executes code |
+| **mcp-gateway** | 8811 | Secure gateway managing node-sandbox MCP server |
+
+## Models
+
+| Model | Size | VRAM | Use Case |
+|-------|------|------|----------|
+| **qwen3-small** | 4.44 GB | 7 GB | Development, fast inference |
+| **qwen3-medium** | 11.28 GB | 15 GB | Better quality, more complex problems |
+| **qwen3-large** | 17.28 GB | 20 GB | Best quality, Docker Offload recommended |
 
 ## Example Problems
 
 ```bash
 # Algorithm challenges
-PROBLEM="Implement quicksort algorithm" docker compose up
+PROBLEM="Implement quicksort algorithm" docker compose up --build
 
-# Data manipulation
-PROBLEM="Parse CSV data and calculate averages" docker compose up
+# Data processing
+PROBLEM="Parse CSV and calculate averages" docker compose up --build
 
 # Math problems  
-PROBLEM="Calculate compound interest with monthly contributions" docker compose up
+PROBLEM="Calculate compound interest with monthly contributions" docker compose up --build
 
 # File generation
-PROBLEM="Generate a JSON file with sample user data" docker compose up
+PROBLEM="Generate JSON file with sample user data" docker compose up --build
 
 # Web utilities
-PROBLEM="Create a URL validator function" docker compose up
+PROBLEM="Create a URL validator function" docker compose up --build
 ```
 
 ## Output Files
 
-The demo creates several output files:
+The agent creates several output files in the `./output/` directory:
 
-- **`output/solution.js`** - The generated JavaScript code
-- **`output/result.txt`** - Human-readable execution results + AI analysis  
-- **`output/result.json`** - Structured data for programmatic use
-- **`sandbox-output/`** - Any files created by the executed code
+- **`solution.js`** - The generated JavaScript code
+- **`result.txt`** - Human-readable execution results and AI analysis  
+- **`result.json`** - Structured data for programmatic use
 
-## Example Output
+Any files created by the executed code are saved in `./sandbox-output/`.
 
-**Input:** `PROBLEM="Calculate the first 10 Fibonacci numbers"`
+## Configuration Options
 
-**Generated Code:**
-```javascript
-// Problem: Calculate the first 10 Fibonacci numbers
-// Generated: 2024-07-19T10:30:45
-// Model Provider: docker-model-runner
-// Model: llama3.2:3b
-// MCP Server: Alfonso Graziano's node-code-sandbox
+### Model Providers
 
-function fibonacci(n) {
-    const sequence = [0, 1];
-    
-    for (let i = 2; i < n; i++) {
-        sequence[i] = sequence[i-1] + sequence[i-2];
-    }
-    
-    return sequence;
-}
+| Provider | Command | Requirements |
+|----------|---------|--------------|
+| **Docker Model Runner** (Default) | `docker compose up` | Local GPU recommended |
+| **OpenAI** | `docker compose -f compose.yaml -f compose.openai.yaml up` | OpenAI API key |
+| **Docker Offload** | `docker compose -f compose.yaml -f compose.offload.yaml up` | Docker Desktop 4.43.0+, Beta Features enabled |
 
-const result = fibonacci(10);
-console.log("First 10 Fibonacci numbers:", result);
-console.log("Sum:", result.reduce((a, b) => a + b, 0));
+### Environment Variables
+
+```bash
+# Problem to solve
+PROBLEM="Your coding challenge here"
+
+# OpenAI API key (for OpenAI provider)
+OPENAI_API_KEY=your_api_key_here
+
+# Model selection (for OpenAI)
+MODEL_NAME=gpt-3.5-turbo  # or gpt-4
 ```
 
-**Execution Result:** ✅ SUCCESS  
-**Output:** `First 10 Fibonacci numbers: [0,1,1,2,3,5,8,13,21,34]`  
-**AI Analysis:** "The solution correctly implements the Fibonacci sequence using an iterative approach. The code is clean, efficient, and includes helpful output for verification."
+## Docker Offload
+
+Docker Offload is a built-in feature of Docker Desktop 4.43.0+ that automatically provisions cloud GPU infrastructure when your local machine needs more resources.
+
+**Setup:**
+1. **Docker Desktop**: Go to Settings > Beta Features > Enable "Docker Offload"
+2. **CLI**: Run `docker offload start` and select your account
+3. **GPU Support**: Choose "Enable GPU" for AI workloads
+
+**Benefits:**
+- **No tokens or authentication needed** - uses your Docker account
+- **Automatic provisioning** - cloud GPU instances when needed  
+- **Same commands** - `docker compose up` works the same way
+- **NVIDIA L4 GPUs** - 23GB memory for large models
+
+**Verification:**
+```bash
+# Check Docker Offload status
+docker offload status
+
+# Verify you're using cloud instance
+docker info | grep "Operating System"
+# Should show: Operating System: Ubuntu 22.04.5 LTS (cloud)
+
+# Check GPU availability
+docker run --rm --gpus all nvidia/cuda:12.4.0-runtime-ubuntu22.04 nvidia-smi
+```
+
+## How It Works
+
+1. **Problem Input**: You provide a coding problem via the `PROBLEM` environment variable
+2. **Code Generation**: The AI agent generates JavaScript code using your chosen model
+3. **Safe Execution**: Code runs in an isolated Node.js container via MCP Gateway
+4. **Analysis**: The AI analyzes results and provides insights
+5. **Output**: Generated code, execution results, and analysis are saved locally
+
+## Technical Details
+
+### MCP Integration
+
+- **MCP Gateway**: Securely manages the node-sandbox MCP server
+- **Node.js Sandbox**: Provides isolated JavaScript execution environment
+- **Docker API Socket**: Allows MCP Gateway to manage sandbox containers
+
+### Model Integration
+
+- **Docker Model Runner**: Provides OpenAI-compatible API for local models
+- **Environment Variables**: Automatically injected for model endpoints
+- **GPU Acceleration**: Automatic GPU detection and utilization
 
 ## File Structure
 
@@ -161,121 +186,70 @@ minimal-agentic-compose/
 ├── coding-agent.py          # Multi-provider AI agent
 ├── Dockerfile              # Agent container definition
 ├── requirements.txt         # Python dependencies
-├── .mcp.env.example        # MCP environment template
-├── .env.example            # General environment template
-├── examples/               # Sample outputs and examples
-├── .github/workflows/      # CI/CD pipeline
-└── output/                 # Generated results directory
+├── agents.yaml             # Agent configuration
+├── .mcp.env               # MCP environment (no secrets needed)
+├── output/                 # Generated results directory
+└── sandbox-output/         # Files created by executed code
 ```
-
-## Advanced Usage
-
-### Custom Models
-
-Edit the compose files to use different models:
-
-```yaml
-# In compose.yaml for Docker Model Runner
-environment:
-  - MODEL_NAME=llama3.2:1b  # Smaller, faster model
-
-# In compose.openai.yaml for OpenAI
-environment:
-  - MODEL_NAME=gpt-4        # More powerful model
-```
-
-### Development Mode
-
-```bash
-# Build and run with verbose output
-docker compose up --build --verbose
-
-# Run without rebuilding
-docker compose up
-
-# Clean up everything
-docker compose down -v
-```
-
-### Custom Problems via File
-
-```bash
-# Create a problem file
-echo "Build a web scraper for parsing HTML" > my-problem.txt
-
-# Pass it to the agent
-PROBLEM="$(cat my-problem.txt)" docker compose up
-```
-
-## Why This Demo is Powerful
-
-Unlike complex multi-agent orchestrations, this minimal demo:
-
-- ✅ **Multiple Model Options** - Local LLMs, OpenAI, or Docker Offload
-- ✅ **Real Agentic Behavior** - AI writes AND tests code
-- ✅ **Safe Execution** - Sandboxed Node.js containers  
-- ✅ **No API Required** - Default uses local models via Docker Model Runner
-- ✅ **Production Patterns** - Shows real AI-code integration
-- ✅ **Minimal Complexity** - Single agent, clear purpose
-- ✅ **Compose Best Practices** - Multiple compose files for different scenarios
-
-## Technical Details
-
-### Model Providers
-
-1. **Docker Model Runner** (Default)
-   - Runs models locally using Docker
-   - No internet connection required
-   - GPU acceleration supported
-   - Models: llama3.2:3b, llama3.2:1b, etc.
-
-2. **OpenAI**
-   - Uses OpenAI's API
-   - Requires API key and internet
-   - Models: gpt-3.5-turbo, gpt-4, etc.
-
-3. **Docker Offload**
-   - Uses Docker's cloud model service
-   - Requires Docker Offload token
-   - Models: Various cloud-hosted options
-
-### MCP Server Integration
-
-Uses [Alfonso Graziano's node-code-sandbox-mcp](https://github.com/alfonsograziano/node-code-sandbox-mcp):
-
-- Ephemeral Docker containers for code execution
-- npm dependency installation support  
-- File system operations and file return capabilities
-- Resource limits for security (CPU/memory controls)
-- Clean container teardown after execution
 
 ## Troubleshooting
 
 ### Common Issues
 
-**"model-runner service not starting"**
+**Docker Model Runner not starting:**
 - Ensure Docker has GPU access enabled
-- Try with a smaller model: `MODEL_NAME=llama3.2:1b`
-- Use OpenAI instead: `docker compose -f compose.yaml -f compose.openai.yaml up`
+- Try smaller model: Use `qwen3-small` instead of `qwen3-medium`
+- Check available VRAM: `nvidia-smi` (NVIDIA) or Activity Monitor (macOS)
 
-**"Failed to connect to sandbox"**
-- Ensure Docker is running: `docker ps`
-- Check Docker socket permissions
+**MCP Gateway connection failed:**
+- Verify Docker socket access: `docker ps` should work
+- Check MCP Gateway logs: `docker compose logs mcp-gateway`
 
-**"Error generating code"**  
-- For OpenAI: Verify API key and credits
-- For Docker Model Runner: Check model download progress
-- For Docker Offload: Verify token validity
+**Code execution fails:**
+- Check sandbox container logs: `docker compose logs coding-agent`
+- Verify Docker socket permissions
 
-**Empty output files**
-- Check logs: `docker compose logs coding-agent`
-- Verify the problem statement is clear
+**OpenAI authentication:**
+- Verify API key: `echo $OPENAI_API_KEY`
+- Check API key permissions and credits
+
+**Docker Offload issues:**
+- Enable in Docker Desktop: Settings > Beta Features > Docker Offload
+- Start session: `docker offload start`
+- Check status: `docker offload status`
 
 ### Performance Tips
 
 - **Local Models**: Use GPU-enabled Docker for faster inference
-- **OpenAI**: Use gpt-3.5-turbo for faster responses
-- **Docker Offload**: Choose appropriate model size for your needs
+- **OpenAI**: Use `gpt-3.5-turbo` for faster responses
+- **Docker Offload**: Automatically provisions optimal hardware
+
+## Example Output
+
+**Input:** `PROBLEM="Calculate the first 10 Fibonacci numbers"`
+
+**Generated Code:**
+```javascript
+// Problem: Calculate the first 10 Fibonacci numbers
+// Generated: 2025-07-19T10:30:45Z
+// Model Provider: docker-model-runner
+// Model: qwen3-small
+
+function fibonacci(n) {
+    const sequence = [0, 1];
+    for (let i = 2; i < n; i++) {
+        sequence[i] = sequence[i-1] + sequence[i-2];
+    }
+    return sequence;
+}
+
+const result = fibonacci(10);
+console.log("First 10 Fibonacci numbers:", result);
+```
+
+**Execution Result:** ✅ SUCCESS  
+**Output:** `First 10 Fibonacci numbers: [0,1,1,2,3,5,8,13,21,34]`  
+**AI Analysis:** "The solution correctly implements the Fibonacci sequence using an iterative approach. Clean, efficient code with proper output."
 
 ## Contributing
 
@@ -287,11 +261,11 @@ This project is dual-licensed under the [MIT License](LICENSE-MIT) or [Apache Li
 
 ## Related Projects
 
-- [Docker Compose for Agents](https://github.com/docker/compose-for-agents) - Collection of AI agent demos
-- [Alfonso Graziano's Node.js Sandbox MCP](https://github.com/alfonsograziano/node-code-sandbox-mcp) - The MCP server used in this demo
-- [Model Context Protocol](https://modelcontextprotocol.io/) - The protocol standard
-- [Docker Model Runner](https://docs.docker.com/ai/model-runner/) - Local model execution
+- [Docker Compose for Agents](https://github.com/docker/compose-for-agents) - Official collection of AI agent demos
+- [Docker Model Runner](https://docs.docker.com/ai/model-runner/) - Local model execution documentation
+- [Model Context Protocol](https://modelcontextprotocol.io/) - Protocol for AI-tool integration
+- [Alfonso Graziano's Node.js Sandbox MCP](https://github.com/alfonsograziano/node-code-sandbox-mcp) - The MCP server used for code execution
 
 ---
 
-**Perfect for learning agentic patterns with real model flexibility!** 🚀
+**Perfect for learning agentic patterns with real Docker Model Runner integration!** 🚀

@@ -4,16 +4,14 @@ services:
     environment:
       - PROBLEM=${PROBLEM:-Calculate the first 10 Fibonacci numbers}
       - MODEL_PROVIDER=docker-model-runner
-      - MODEL_RUNNER_URL=http://localhost:8000
-      - MODEL_RUNNER_MODEL=qwen3-small
+      # Use Docker Model Runner's OpenAI-compatible endpoint
+      - OPENAI_BASE_URL=http://host.docker.internal/engines/llama.cpp/
+      - OPENAI_API_KEY=irrelevant
+      - MODEL_NAME=ai/qwen3:8B-Q4_0
       - MCPGATEWAY_URL=http://mcp-gateway:8811
     volumes:
       - ./output:/app/output
       - ./sandbox-output:/app/sandbox-output
-    models:
-      qwen3-small:
-        endpoint_var: MODEL_RUNNER_URL
-        model_var: MODEL_RUNNER_MODEL
     depends_on:
       - mcp-gateway
 
@@ -28,6 +26,7 @@ services:
     secrets:
       - mcp_secret
 
+# Docker Model Runner models configuration
 models:
   qwen3-small:
     model: ai/qwen3:8B-Q4_0 # 4.44 GB

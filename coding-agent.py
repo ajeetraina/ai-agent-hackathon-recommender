@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
 Minimal Node.js Agentic Compose Demo
-An AI agent that solves coding problems using Alfonso Graziano's Node.js sandbox.
-Supports local models via Ollama, OpenAI, and Docker Offload.
+An AI agent that solves coding problems using Node.js sandbox MCP server.
+Supports Docker Model Runner (local models), OpenAI, and Docker Offload.
 """
 
 import os
@@ -14,81 +14,44 @@ from datetime import datetime
 
 def wait_for_model_service():
     """Wait for the model service to be ready"""
-    model_provider = os.getenv('MODEL_PROVIDER', 'local').lower()
+    model_provider = os.getenv('MODEL_PROVIDER', 'docker-model-runner').lower()
     
-    if model_provider in ['local', 'docker-model-runner']:
-        model_url = "http://model:11434"
-        print("🔄 Waiting for local model service to be ready...")
+    if model_provider in ['docker-model-runner', 'local']:
+        # Docker Model Runner uses a different endpoint structure
+        model_url = os.getenv('MODEL_RUNNER_URL', 'http://localhost:8000')
+        print("🔄 Waiting for Docker Model Runner to be ready...")
         
-        for i in range(30):  # Wait up to 30 seconds
+        for i in range(60):  # Wait up to 60 seconds for model to be ready
             try:
-                response = requests.get(f"{model_url}/api/tags", timeout=5)
+                # Docker Model Runner health check endpoint
+                response = requests.get(f"{model_url}/health", timeout=5)
                 if response.status_code == 200:
-                    print("✅ Model service is ready")
+                    print("✅ Docker Model Runner is ready")
                     return True
             except:
                 pass
             time.sleep(1)
         
-        print("⚠️ Model service not ready, continuing anyway...")
+        print("⚠️ Docker Model Runner not ready, continuing anyway...")
         return False
-    
-    return True
-
-def ensure_model_pulled():
-    """Ensure the required model is pulled"""
-    model_provider = os.getenv('MODEL_PROVIDER', 'local').lower()
-    
-    if model_provider in ['local', 'docker-model-runner']:
-        model_name = os.getenv('MODEL_NAME', 'llama3.2:3b')
-        model_url = "http://model:11434"
-        
-        print(f"🔍 Checking if model {model_name} is available...")
-        
-        try:
-            # Check if model exists
-            response = requests.get(f"{model_url}/api/tags", timeout=10)
-            if response.status_code == 200:
-                models = response.json().get('models', [])
-                model_names = [m.get('name', '') for m in models]
-                
-                if model_name in model_names:
-                    print(f"✅ Model {model_name} is already available")
-                    return True
-                
-                print(f"📥 Pulling model {model_name}...")
-                pull_response = requests.post(
-                    f"{model_url}/api/pull",
-                    json={"name": model_name},
-                    timeout=300  # 5 minutes timeout for pulling
-                )
-                
-                if pull_response.status_code == 200:
-                    print(f"✅ Model {model_name} pulled successfully")
-                    return True
-                else:
-                    print(f"⚠️ Failed to pull model {model_name}")
-                    return False
-        except Exception as e:
-            print(f"⚠️ Could not ensure model is pulled: {e}")
-            return False
     
     return True
 
 def create_ai_client():
     """Create appropriate AI client based on MODEL_PROVIDER"""
-    provider = os.getenv('MODEL_PROVIDER', 'local').lower()
+    provider = os.getenv('MODEL_PROVIDER', 'docker-model-runner').lower()
     
     if provider == 'openai':
         from openai import OpenAI
         return OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
     
-    elif provider in ['local', 'docker-model-runner']:
+    elif provider in ['docker-model-runner', 'local']:
         from openai import OpenAI
-        model_url = "http://model:11434/v1"
+        # Docker Model Runner provides OpenAI-compatible API
+        model_url = os.getenv('MODEL_RUNNER_URL', 'http://localhost:8000')
         return OpenAI(
-            base_url=model_url,
-            api_key="dummy-key"  # Ollama doesn't need real API key
+            base_url=f"{model_url}/v1",
+            api_key="dummy-key"  # Docker Model Runner doesn't need real API key
         )
     
     elif provider == 'docker-offload':
@@ -108,13 +71,12 @@ def create_ai_client():
 def generate_code_solution(problem):
     """Generate JavaScript code to solve the given problem"""
     client = create_ai_client()
-    model_name = os.getenv('MODEL_NAME', 'llama3.2:3b')
+    model_name = os.getenv('MODEL_RUNNER_MODEL', 'qwen3-small')
     
-    # For local models, use the model name as-is
-    # For OpenAI, use the OpenAI model name
-    provider = os.getenv('MODEL_PROVIDER', 'local').lower()
-    if provider == 'openai' and model_name.startswith('llama'):
-        model_name = 'gpt-3.5-turbo'
+    # For OpenAI, use OpenAI model names
+    provider = os.getenv('MODEL_PROVIDER', 'docker-model-runner').lower()
+    if provider == 'openai':
+        model_name = os.getenv('MODEL_NAME', 'gpt-3.5-turbo')
     
     prompt = f"""
     Write JavaScript code to solve this problem: {problem}
@@ -141,10 +103,71 @@ def generate_code_solution(problem):
     except Exception as e:
         return f"// Error generating code: {e}"
 
-def execute_code_in_sandbox(code):
-    """Execute JavaScript code using Alfonso Graziano's MCP server via Docker"""
+def execute_code_via_mcp_gateway(code):
+    """Execute JavaScript code using MCP Gateway with node-sandbox server"""
     try:
-        # Run the MCP server via Docker with the code
+        mcp_gateway_url = os.getenv('MCPGATEWAY_URL', 'http://mcp-gateway:8811')
+        
+        # Create MCP request for node-sandbox server
+        mcp_request = {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "tools/call",
+            "params": {
+                "name": "run_js",
+                "arguments": {
+                    "code": code
+                }
+            }
+        }
+        
+        # Send request to MCP Gateway
+        response = requests.post(
+            f"{mcp_gateway_url}/mcp",
+            json=mcp_request,
+            timeout=60,
+            headers={'Content-Type': 'application/json'}
+        )
+        
+        if response.status_code == 200:
+            result = response.json()
+            if "result" in result:
+                return {
+                    'success': True,
+                    'output': result["result"].get('content', ''),
+                    'error': '',
+                    'execution_time': 0
+                }
+            else:
+                return {
+                    'success': False,
+                    'error': f"MCP Error: {result.get('error', 'Unknown error')}",
+                    'output': ''
+                }
+        else:
+            return {
+                'success': False,
+                'error': f"HTTP {response.status_code}: {response.text}",
+                'output': ''
+            }
+            
+    except requests.exceptions.Timeout:
+        return {
+            'success': False,
+            'error': "Execution timed out (60s limit)",
+            'output': ''
+        }
+    except Exception as e:
+        return {
+            'success': False,
+            'error': f"Failed to execute code via MCP Gateway: {e}",
+            'output': ''
+        }
+
+def execute_code_direct_docker(code):
+    """Fallback: Execute JavaScript code directly using Docker node-sandbox"""
+    try:
+        # Run the node-sandbox MCP server via Docker with the code
         docker_cmd = [
             "docker", "run", "--rm", "-i",
             "-v", "/var/run/docker.sock:/var/run/docker.sock",
@@ -219,15 +242,27 @@ def execute_code_in_sandbox(code):
             'output': ''
         }
 
+def execute_code_in_sandbox(code):
+    """Execute JavaScript code using MCP Gateway or fallback to direct Docker"""
+    # Try MCP Gateway first
+    result = execute_code_via_mcp_gateway(code)
+    
+    # If MCP Gateway fails, fallback to direct Docker execution
+    if not result['success'] and 'MCP Gateway' in result['error']:
+        print("⚠️ MCP Gateway failed, falling back to direct Docker execution...")
+        result = execute_code_direct_docker(code)
+    
+    return result
+
 def analyze_results(problem, code, execution_result):
     """Analyze the code execution results"""
     client = create_ai_client()
-    model_name = os.getenv('MODEL_NAME', 'llama3.2:3b')
+    model_name = os.getenv('MODEL_RUNNER_MODEL', 'qwen3-small')
     
-    # For OpenAI, ensure we use the right model name
-    provider = os.getenv('MODEL_PROVIDER', 'local').lower()
-    if provider == 'openai' and model_name.startswith('llama'):
-        model_name = 'gpt-3.5-turbo'
+    # For OpenAI, use OpenAI model names
+    provider = os.getenv('MODEL_PROVIDER', 'docker-model-runner').lower()
+    if provider == 'openai':
+        model_name = os.getenv('MODEL_NAME', 'gpt-3.5-turbo')
     
     if execution_result['success']:
         status = "✅ Success"
@@ -267,22 +302,21 @@ def analyze_results(problem, code, execution_result):
 
 def main():
     problem = os.getenv('PROBLEM', 'Calculate the first 10 Fibonacci numbers')
-    provider = os.getenv('MODEL_PROVIDER', 'local')
-    model_name = os.getenv('MODEL_NAME', 'llama3.2:3b')
+    provider = os.getenv('MODEL_PROVIDER', 'docker-model-runner')
+    model_name = os.getenv('MODEL_RUNNER_MODEL', 'qwen3-small')
     
     print(f"🤖 Coding Agent Starting...")
     print(f"📝 Problem: {problem}")
     print(f"🔧 Model Provider: {provider}")
     print(f"🧠 Model: {model_name}")
-    print(f"🔧 Using Alfonso Graziano's Node.js Sandbox MCP Server")
+    print(f"🔧 Using Node.js Sandbox via MCP Gateway")
     
     # Create output directories
     os.makedirs('/app/output', exist_ok=True)
     os.makedirs('/app/sandbox-output', exist_ok=True)
     
-    # Wait for model service and ensure model is available
+    # Wait for model service
     wait_for_model_service()
-    ensure_model_pulled()
     
     # Generate code solution
     print("🧠 Generating JavaScript solution...")
@@ -308,7 +342,7 @@ def main():
         f.write(f"// Generated: {datetime.now().isoformat()}\n")
         f.write(f"// Model Provider: {provider}\n")
         f.write(f"// Model: {model_name}\n")
-        f.write(f"// MCP Server: Alfonso Graziano's node-code-sandbox\n\n")
+        f.write(f"// MCP Server: node-sandbox via MCP Gateway\n\n")
         f.write(code)
     
     # Save execution results and analysis
@@ -320,7 +354,7 @@ def main():
         'code': code,
         'execution': execution_result,
         'analysis': analysis,
-        'mcp_server': 'alfonsograziano/node-code-sandbox-mcp'
+        'mcp_server': 'node-sandbox via MCP Gateway'
     }
     
     with open('/app/output/result.json', 'w') as f:
@@ -332,7 +366,7 @@ def main():
         f.write(f"Timestamp: {result_data['timestamp']}\n")
         f.write(f"Model Provider: {provider}\n")
         f.write(f"Model: {model_name}\n")
-        f.write(f"MCP Server: Alfonso Graziano's node-code-sandbox\n")
+        f.write(f"MCP Server: node-sandbox via MCP Gateway\n")
         f.write("=" * 60 + "\n\n")
         
         f.write("Generated Code:\n")

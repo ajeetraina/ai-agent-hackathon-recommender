@@ -1,0 +1,25 @@
+services:
+  # Override coding-agent to use Docker Offload
+  coding-agent:
+    environment:
+      - PROBLEM=${PROBLEM:-Calculate the first 10 Fibonacci numbers}
+      - MODEL_PROVIDER=docker-offload
+      - MODEL_URL=https://docker.com/api/v1/models
+      - MODEL_NAME=llama3.2:3b
+      - DOCKER_OFFLOAD_TOKEN=${DOCKER_OFFLOAD_TOKEN}
+    depends_on:
+      - node-sandbox
+      
+  # Disable local model-runner service when using Docker Offload
+  model-runner:
+    profiles:
+      - disabled
+
+# Usage with Docker Offload:
+# 1. Set your Docker Offload token:
+#    export DOCKER_OFFLOAD_TOKEN=your-token-here
+# 2. Run with Offload configuration:
+#    docker compose -f compose.yaml -f compose.offload.yaml up --build
+#
+# Note: Docker Offload requires proper authentication and may have different
+# pricing than local model execution.

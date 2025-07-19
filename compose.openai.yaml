@@ -4,6 +4,7 @@ services:
       # Override to use OpenAI models instead of local Model Runner
       - MODEL_PROVIDER=openai
       - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - MODEL_NAME=gpt-3.5-turbo
+      - MODEL_NAME=${MODEL_NAME:-gpt-3.5-turbo}
+
 models: !reset
   # No local models needed when using OpenAI

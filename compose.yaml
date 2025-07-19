@@ -6,7 +6,6 @@ services:
       - MODEL_PROVIDER=docker-model-runner
       - MODEL_RUNNER_URL=http://localhost:8000
       - MODEL_RUNNER_MODEL=qwen3-small
-      - MCPGATEWAY_URL=http://mcp-gateway:8811
     volumes:
       - ./output:/app/output
       - ./sandbox-output:/app/sandbox-output
@@ -15,19 +14,6 @@ services:
       qwen3-small:
         endpoint_var: MODEL_RUNNER_URL
         model_var: MODEL_RUNNER_MODEL
-    depends_on:
-      - mcp-gateway
-
-  mcp-gateway:
-    image: docker/mcp-gateway:latest
-    ports:
-      - "8811:8811"
-    use_api_socket: true
-    command:
-      - --secrets=/run/secrets/mcp_secret
-      - --servers=node-sandbox
-    secrets:
-      - mcp_secret
 
 models:
   qwen3-small:
@@ -37,6 +23,7 @@ models:
     model: ai/qwen3:14B-Q6_K # 11.28 GB
     context_size: 15000 # 15 GB VRAM
 
-secrets:
-  mcp_secret:
-    file: ./.mcp.env
+# Usage:
+# Default (Docker Model Runner): docker compose up --build
+# With OpenAI: docker compose -f compose.yaml -f compose.openai.yaml up --build
+# With Docker Offload: docker compose -f compose.yaml -f compose.offload.yaml up --build

@@ -1,13 +1,19 @@
+# Docker Offload override for larger models on cloud GPU
+# Usage: docker compose -f compose.yaml -f compose.offload.yaml up --build
+
 services:
   coding-agent:
-    # overrides model with a larger model for Docker Offload
+    # Override with larger model configuration for cloud GPU
     models: !override
       qwen3-large:
-        endpoint_var: MODEL_RUNNER_URL
-        model_var: MODEL_RUNNER_MODEL
+        endpoint_var: OPENAI_BASE_URL
+        model_var: OPENAI_MODEL
+
 models:
   qwen3-large:
-    model: ai/qwen3:30B-A3B-Q4_K_M # 17.28 GB
-    context_size: 15000 # 20 GB VRAM
-    # increase context size to handle larger results
+    # Larger model for enhanced reasoning (requires cloud GPU via Docker Offload)
+    model: ai/qwen3:14B-Q6_K # 11.28 GB
+    context_size: 15000 # 15 GB VRAM
+    # For even larger models:
+    # model: ai/qwen3:30B-A3B-Q4_K_M # 17.28 GB
     # context_size: 41000 # 24 GB VRAM

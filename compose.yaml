@@ -28,12 +28,14 @@ services:
   mcp-gateway:
     # mcp-gateway secures your MCP servers
     image: docker/mcp-gateway:latest
+    ports:
+      - "8811:8811"
     # use docker API socket to start MCP servers
     use_api_socket: true
     command:
       # securely embed secrets into the gateway
       - --secrets=/run/secrets/mcp_secret
-      # add Node.js sandbox MCP server for code execution
+      # add any MCP servers you want to use
       - --servers=node-sandbox
     secrets:
       - mcp_secret

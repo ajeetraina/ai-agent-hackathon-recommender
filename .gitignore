@@ -1,9 +1,13 @@
 # Environment variables
 .env
+.mcp.env
 
 # Output directories
 output/
 sandbox-output/
+
+# Secret files (following compose-for-agents pattern)
+secret.*
 
 # Python
 __pycache__/

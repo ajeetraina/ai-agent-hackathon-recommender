@@ -2,29 +2,93 @@
 """
 Minimal Node.js Agentic Compose Demo
 An AI agent that solves coding problems using Alfonso Graziano's Node.js sandbox.
-Supports Docker Model Runner, OpenAI, and Docker Offload.
+Supports local models via Ollama, OpenAI, and Docker Offload.
 """
 
 import os
 import json
 import subprocess
 import requests
+import time
 from datetime import datetime
+
+def wait_for_model_service():
+    """Wait for the model service to be ready"""
+    model_provider = os.getenv('MODEL_PROVIDER', 'local').lower()
+    
+    if model_provider in ['local', 'docker-model-runner']:
+        model_url = "http://model:11434"
+        print("🔄 Waiting for local model service to be ready...")
+        
+        for i in range(30):  # Wait up to 30 seconds
+            try:
+                response = requests.get(f"{model_url}/api/tags", timeout=5)
+                if response.status_code == 200:
+                    print("✅ Model service is ready")
+                    return True
+            except:
+                pass
+            time.sleep(1)
+        
+        print("⚠️ Model service not ready, continuing anyway...")
+        return False
+    
+    return True
+
+def ensure_model_pulled():
+    """Ensure the required model is pulled"""
+    model_provider = os.getenv('MODEL_PROVIDER', 'local').lower()
+    
+    if model_provider in ['local', 'docker-model-runner']:
+        model_name = os.getenv('MODEL_NAME', 'llama3.2:3b')
+        model_url = "http://model:11434"
+        
+        print(f"🔍 Checking if model {model_name} is available...")
+        
+        try:
+            # Check if model exists
+            response = requests.get(f"{model_url}/api/tags", timeout=10)
+            if response.status_code == 200:
+                models = response.json().get('models', [])
+                model_names = [m.get('name', '') for m in models]
+                
+                if model_name in model_names:
+                    print(f"✅ Model {model_name} is already available")
+                    return True
+                
+                print(f"📥 Pulling model {model_name}...")
+                pull_response = requests.post(
+                    f"{model_url}/api/pull",
+                    json={"name": model_name},
+                    timeout=300  # 5 minutes timeout for pulling
+                )
+                
+                if pull_response.status_code == 200:
+                    print(f"✅ Model {model_name} pulled successfully")
+                    return True
+                else:
+                    print(f"⚠️ Failed to pull model {model_name}")
+                    return False
+        except Exception as e:
+            print(f"⚠️ Could not ensure model is pulled: {e}")
+            return False
+    
+    return True
 
 def create_ai_client():
     """Create appropriate AI client based on MODEL_PROVIDER"""
-    provider = os.getenv('MODEL_PROVIDER', 'docker-model-runner').lower()
+    provider = os.getenv('MODEL_PROVIDER', 'local').lower()
     
     if provider == 'openai':
         from openai import OpenAI
         return OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
     
-    elif provider == 'docker-model-runner':
+    elif provider in ['local', 'docker-model-runner']:
         from openai import OpenAI
-        model_url = os.getenv('MODEL_URL', 'http://model-runner:11434/v1')
+        model_url = "http://model:11434/v1"
         return OpenAI(
             base_url=model_url,
-            api_key="dummy-key"  # Docker Model Runner doesn't need real API key
+            api_key="dummy-key"  # Ollama doesn't need real API key
         )
     
     elif provider == 'docker-offload':
@@ -44,7 +108,13 @@ def create_ai_client():
 def generate_code_solution(problem):
     """Generate JavaScript code to solve the given problem"""
     client = create_ai_client()
-    model_name = os.getenv('MODEL_NAME', 'gpt-3.5-turbo')
+    model_name = os.getenv('MODEL_NAME', 'llama3.2:3b')
+    
+    # For local models, use the model name as-is
+    # For OpenAI, use the OpenAI model name
+    provider = os.getenv('MODEL_PROVIDER', 'local').lower()
+    if provider == 'openai' and model_name.startswith('llama'):
+        model_name = 'gpt-3.5-turbo'
     
     prompt = f"""
     Write JavaScript code to solve this problem: {problem}
@@ -152,7 +222,12 @@ def execute_code_in_sandbox(code):
 def analyze_results(problem, code, execution_result):
     """Analyze the code execution results"""
     client = create_ai_client()
-    model_name = os.getenv('MODEL_NAME', 'gpt-3.5-turbo')
+    model_name = os.getenv('MODEL_NAME', 'llama3.2:3b')
+    
+    # For OpenAI, ensure we use the right model name
+    provider = os.getenv('MODEL_PROVIDER', 'local').lower()
+    if provider == 'openai' and model_name.startswith('llama'):
+        model_name = 'gpt-3.5-turbo'
     
     if execution_result['success']:
         status = "✅ Success"
@@ -192,8 +267,8 @@ def analyze_results(problem, code, execution_result):
 
 def main():
     problem = os.getenv('PROBLEM', 'Calculate the first 10 Fibonacci numbers')
-    provider = os.getenv('MODEL_PROVIDER', 'docker-model-runner')
-    model_name = os.getenv('MODEL_NAME', 'gpt-3.5-turbo')
+    provider = os.getenv('MODEL_PROVIDER', 'local')
+    model_name = os.getenv('MODEL_NAME', 'llama3.2:3b')
     
     print(f"🤖 Coding Agent Starting...")
     print(f"📝 Problem: {problem}")
@@ -204,6 +279,10 @@ def main():
     # Create output directories
     os.makedirs('/app/output', exist_ok=True)
     os.makedirs('/app/sandbox-output', exist_ok=True)
+    
+    # Wait for model service and ensure model is available
+    wait_for_model_service()
+    ensure_model_pulled()
     
     # Generate code solution
     print("🧠 Generating JavaScript solution...")

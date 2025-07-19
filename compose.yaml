@@ -4,23 +4,17 @@ services:
     environment:
       - PROBLEM=${PROBLEM:-Calculate the first 10 Fibonacci numbers}
       - MODEL_PROVIDER=docker-model-runner
-      # Use Docker Model Runner's OpenAI-compatible endpoint
-      - OPENAI_BASE_URL=http://host.docker.internal/engines/llama.cpp/
-      - OPENAI_API_KEY=irrelevant
-      - MODEL_NAME=ai/qwen3:8B-Q4_0
       - MCPGATEWAY_URL=http://mcp-gateway:8811
     volumes:
       - ./output:/app/output
       - ./sandbox-output:/app/sandbox-output
     depends_on:
       - mcp-gateway
-    # Wait for Docker Model Runner to be available
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://host.docker.internal/engines/llama.cpp/v1/models"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
+    # NEW: Service-level model configuration following Agentic Compose pattern
+    models:
+      qwen3:
+        endpoint_var: OPENAI_BASE_URL
+        model_var: OPENAI_MODEL
 
   mcp-gateway:
     image: docker/mcp-gateway:latest
@@ -28,19 +22,12 @@ services:
       - "8811:8811"
     use_api_socket: true
     command:
-      - --secrets=/run/secrets/mcp_secret
+      - --transport=sse
       - --servers=node-code-sandbox
-    secrets:
-      - mcp_secret
+      - --tools=run_js
 
-# Try a simpler models configuration
+# NEW: Top-level models section following Agentic Compose pattern
 models:
   qwen3:
     model: ai/qwen3:8B-Q4_0
     context_size: 8096
-    # Add explicit configuration
-    pull_policy: if_not_present
-
-secrets:
-  mcp_secret:
-    file: ./.mcp.env

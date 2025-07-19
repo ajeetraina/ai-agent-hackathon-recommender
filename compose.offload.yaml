@@ -10,8 +10,8 @@ services:
     depends_on:
       - node-sandbox
       
-  # Disable local model-runner service when using Docker Offload
-  model-runner:
+  # Disable local model service when using Docker Offload
+  model:
     profiles:
       - disabled
 

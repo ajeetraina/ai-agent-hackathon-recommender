@@ -1,0 +1,45 @@
+services:
+  # AI agent that solves coding problems using Node.js sandbox
+  coding-agent:
+    build: .
+    environment:
+      - PROBLEM=${PROBLEM:-Calculate the first 10 Fibonacci numbers}
+      - MODEL_PROVIDER=docker-model-runner
+      - MODEL_URL=http://model-runner:11434/v1
+      - MODEL_NAME=llama3.2:3b
+    volumes:
+      - ./output:/app/output
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      - model-runner
+      - node-sandbox
+
+  # Docker Model Runner for local LLM inference
+  model-runner:
+    image: docker/model-runner:latest
+    ports:
+      - "11434:11434"
+    environment:
+      - MODEL=llama3.2:3b
+    volumes:
+      - model-data:/root/.ollama
+    profiles:
+      - model-runner
+
+  # Alfonso Graziano's Node.js code execution sandbox (MCP server)
+  node-sandbox:
+    image: alfonsograziano/node-code-sandbox-mcp:latest
+    stdin_open: true
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./sandbox-output:/root
+    environment:
+      - FILES_DIR=/root
+
+volumes:
+  model-data:
+
+# Usage:
+# Default (Docker Model Runner): docker compose up --build
+# With OpenAI: docker compose -f compose.yaml -f compose.openai.yaml up --build
+# With Offload: docker compose -f compose.yaml -f compose.offload.yaml up --build

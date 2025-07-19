@@ -124,6 +124,38 @@ OPENAI_API_KEY=your_api_key_here
 MODEL_NAME=gpt-3.5-turbo  # or gpt-4
 ```
 
+## Docker Model Runner Integration
+
+This project follows the **Docker Compose for Agents** pattern for Docker Model Runner integration:
+
+### Key Configuration
+
+```yaml
+# compose.yaml
+services:
+  coding-agent:
+    environment:
+      # Use OpenAI-compatible endpoint provided by Docker Model Runner
+      - OPENAI_BASE_URL=http://host.docker.internal/engines/llama.cpp/
+      - OPENAI_API_KEY=irrelevant
+      - MODEL_NAME=ai/qwen3:8B-Q4_0
+
+# Model definitions - Docker Compose automatically manages these
+models:
+  qwen3-small:
+    model: ai/qwen3:8B-Q4_0
+    context_size: 15000
+```
+
+### How It Works
+
+1. **Automatic Model Management**: Docker Compose pulls and starts models defined in the `models:` section
+2. **OpenAI-Compatible API**: Docker Model Runner exposes models via OpenAI-compatible endpoints  
+3. **No Health Checks Needed**: Docker Compose handles model lifecycle automatically
+4. **Host Networking**: Uses `host.docker.internal` for container-to-host communication
+
+This approach eliminates the "backend not found" errors by properly configuring the Docker Model Runner endpoints.
+
 ## Docker Offload
 
 Docker Offload is a built-in feature of Docker Desktop 4.43.0+ that automatically provisions cloud GPU infrastructure when your local machine needs more resources.
@@ -191,6 +223,18 @@ minimal-agentic-compose/
 
 ## Troubleshooting
 
+### Fixed: "backend not found" Error
+
+**Problem**: The coding agent was failing with "backend not found" when trying to connect to Docker Model Runner.
+
+**Root Cause**: Incorrect Docker Model Runner endpoint configuration and missing proper OpenAI-compatible API setup.
+
+**Solution Applied**:
+1. ✅ **Fixed compose.yaml**: Removed incorrect service-level `models:` section  
+2. ✅ **Added proper endpoints**: Use `OPENAI_BASE_URL=http://host.docker.internal/engines/llama.cpp/`
+3. ✅ **Removed problematic health checks**: Docker Compose manages model lifecycle automatically
+4. ✅ **Updated client configuration**: Use OpenAI-compatible client with correct base URL
+
 ### Common Issues
 
 **Docker Model Runner not starting:**
@@ -227,7 +271,7 @@ minimal-agentic-compose/
 // Problem: Calculate the first 10 Fibonacci numbers
 // Generated: 2025-07-19T10:30:45Z
 // Model Provider: docker-model-runner
-// Model: qwen3-small
+// Model: ai/qwen3:8B-Q4_0
 // Execution: Direct Node.js Container
 
 function fibonacci(n) {

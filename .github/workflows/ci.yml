@@ -8,7 +8,7 @@ on:
 
 jobs:
   test-default:
-    name: Test Default (Docker Model Runner)
+    name: Test Default (Local Ollama)
     runs-on: ubuntu-latest
     
     steps:
@@ -20,12 +20,12 @@ jobs:
     - name: Build Docker images
       run: docker compose build
     
-    - name: Test Docker Model Runner configuration
+    - name: Test Local Ollama configuration
       env:
         PROBLEM: "Calculate the sum of numbers 1 to 5"
       run: |
-        echo "✅ Testing Docker Model Runner (build only - no GPU in CI)"
-        echo "⚠️ Full DMR test requires GPU, skipping execution in CI"
+        echo "✅ Testing Local Ollama (build only - requires GPU for full test)"
+        echo "⚠️ Full local model test requires GPU, skipping execution in CI"
         docker compose config
         echo "✅ Compose configuration valid"
     

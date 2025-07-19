@@ -14,6 +14,13 @@ services:
       - ./sandbox-output:/app/sandbox-output
     depends_on:
       - mcp-gateway
+    # Wait for Docker Model Runner to be available
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://host.docker.internal/engines/llama.cpp/v1/models"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
 
   mcp-gateway:
     image: docker/mcp-gateway:latest
@@ -26,14 +33,13 @@ services:
     secrets:
       - mcp_secret
 
-# Docker Model Runner models configuration
+# Try a simpler models configuration
 models:
-  qwen3-small:
-    model: ai/qwen3:8B-Q4_0 # 4.44 GB
-    context_size: 15000 # 7 GB VRAM
-  qwen3-medium:
-    model: ai/qwen3:14B-Q6_K # 11.28 GB
-    context_size: 15000 # 15 GB VRAM
+  qwen3:
+    model: ai/qwen3:8B-Q4_0
+    context_size: 8096
+    # Add explicit configuration
+    pull_policy: if_not_present
 
 secrets:
   mcp_secret:

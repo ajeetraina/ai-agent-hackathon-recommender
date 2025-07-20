@@ -5,28 +5,30 @@ FROM base AS deps
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
-# Install dependencies based on the preferred package manager
+# Copy package files
 COPY package.json package-lock.json* ./
-RUN npm install --production --frozen-lockfile || npm install --production
+
+# Install dependencies
+RUN npm install --frozen-lockfile || npm install
 
 # Rebuild the source code only when needed
 FROM base AS builder
 WORKDIR /app
+
+# Copy dependencies
 COPY --from=deps /app/node_modules ./node_modules
+
+# Copy source code
 COPY . .
 
 # Next.js collects completely anonymous telemetry data about general usage.
 ENV NEXT_TELEMETRY_DISABLED 1
 
-# Install dev dependencies for build
+# Ensure we have all dependencies
 RUN npm install
 
-# Debug: List contents before build
-RUN ls -la
-RUN ls -la src/
-
-# Build the application with verbose output
-RUN npm run build && ls -la .next/
+# Build the application
+RUN npm run build
 
 # Production image, copy all the files and run next
 FROM base AS runner
@@ -38,19 +40,13 @@ ENV NEXT_TELEMETRY_DISABLED 1
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
-# Copy package.json first
-COPY --from=builder /app/package.json ./package.json
-
-# Copy next config if it exists
-COPY --from=builder /app/next.config.* ./ 2>/dev/null || true
-
-# Copy public directory if it exists
-COPY --from=builder /app/public ./public 2>/dev/null || mkdir -p ./public
-
-# Copy the .next folder from the builder stage
+# Copy necessary files
+COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next ./.next
+COPY --from=builder /app/package.json ./package.json
+COPY --from=builder /app/next.config.* ./
 
-# Copy production node_modules
+# Copy node_modules
 COPY --from=deps /app/node_modules ./node_modules
 
 USER nextjs

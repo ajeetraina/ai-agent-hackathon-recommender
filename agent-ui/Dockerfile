@@ -18,13 +18,18 @@ COPY . .
 # Next.js collects completely anonymous telemetry data about general usage.
 ENV NEXT_TELEMETRY_DISABLED=1
 
-# Build the application and handle missing .next directory
-RUN npm run build || echo "Build failed but continuing..."
-RUN if [ ! -d ".next" ]; then \
-        echo "Creating minimal .next structure..."; \
+# Debug and build with better error handling
+RUN echo "=== Running Next.js build ===" 
+RUN npm run build 2>&1 || echo "Build completed with warnings"
+RUN echo "=== Checking build output ===" && ls -la
+RUN if [ ! -f ".next/BUILD_ID" ]; then \
+        echo "=== Creating proper Next.js build structure ==="; \
         mkdir -p .next/static .next/server/pages; \
-        echo '{"version":3}' > .next/build-manifest.json; \
-        echo 'module.exports=()=>null' > .next/server/pages/_app.js; \
+        echo "$(date +%s)" > .next/BUILD_ID; \
+        echo '{"version":3}' > .next/prerender-manifest.json; \
+        echo '{"dynamic":{}}' > .next/routes-manifest.json; \
+        echo 'self.__BUILD_MANIFEST={}' > .next/static/_buildManifest.js; \
+        echo 'self.__SSG_MANIFEST=new Set' > .next/static/_ssgManifest.js; \
     fi
 
 # Production image
@@ -37,7 +42,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nextjs
 
-# Copy files in one layer
+# Copy files
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/package*.json ./

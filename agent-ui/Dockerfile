@@ -7,7 +7,7 @@ WORKDIR /app
 
 # Install dependencies based on the preferred package manager
 COPY package.json package-lock.json* ./
-RUN npm ci --only=production
+RUN npm install --production --frozen-lockfile || npm install --production
 
 # Rebuild the source code only when needed
 FROM base AS builder
@@ -17,6 +17,9 @@ COPY . .
 
 # Next.js collects completely anonymous telemetry data about general usage.
 ENV NEXT_TELEMETRY_DISABLED 1
+
+# Install dev dependencies for build
+RUN npm install
 
 # Build the application
 RUN npm run build
@@ -38,7 +41,7 @@ COPY --from=builder /app/package.json ./package.json
 
 # Copy the .next folder from the builder stage
 COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
-COPY --from=builder /app/node_modules ./node_modules
+COPY --from=deps /app/node_modules ./node_modules
 
 USER nextjs
 

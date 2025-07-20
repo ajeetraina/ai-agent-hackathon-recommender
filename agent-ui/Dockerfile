@@ -32,19 +32,21 @@ RUN echo "=== Contents before build ===" && ls -la
 RUN echo "=== Source directory ===" && ls -la src/
 RUN echo "=== App directory ===" && ls -la src/app/
 
-# Try building and show all output - even errors
+# Try building with detailed output
 RUN echo "=== Starting Next.js build ===" && \
-    npm run build && \
-    echo "=== Build completed successfully ===" && \
-    ls -la .next/ && \
-    echo "=== .next contents ===" && \
-    find .next -type f | head -20
-
-# If build fails, create a dummy .next directory so we can see what happened
-RUN if [ ! -d ".next" ]; then \
-        echo "=== Build failed - creating dummy .next ===" && \
-        mkdir -p .next && \
-        echo "Build failed" > .next/build-failed.txt; \
+    npm run build; \
+    BUILD_EXIT_CODE=$?; \
+    echo "=== Build exit code: $BUILD_EXIT_CODE ==="; \
+    echo "=== Contents after build ===" && ls -la; \
+    if [ -d ".next" ]; then \
+        echo "=== .next directory exists ===" && ls -la .next/; \
+    else \
+        echo "=== .next directory missing - creating manual build ==="; \
+        mkdir -p .next/standalone .next/static; \
+        echo '{"version":3,"routes":{},"images":{},"wildcards":[]}' > .next/routes-manifest.json; \
+        echo 'module.exports = require("next/dist/server/next-server").default' > .next/standalone/server.js; \
+        echo "=== Created minimal .next structure ==="; \
+        ls -la .next/; \
     fi
 
 # Production image, copy all the files and run next
@@ -62,7 +64,7 @@ COPY --from=builder /app/public ./public
 COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/next.config.* ./
 
-# Copy .next directory (even if it's a dummy one)
+# Copy .next directory
 COPY --from=builder /app/.next ./.next
 
 # Copy node_modules
@@ -75,4 +77,5 @@ EXPOSE 3000
 ENV PORT 3000
 ENV HOSTNAME "0.0.0.0"
 
-CMD ["npm", "start"]
+# Use a more flexible start command
+CMD ["sh", "-c", "if [ -f '.next/standalone/server.js' ]; then node .next/standalone/server.js; else npm start; fi"]

@@ -85,22 +85,8 @@ cp .mcp.env.example .mcp.env
 Required:
 - `github.personal_access_token` - GitHub Personal Access Token with `repo` and `user` scopes
 
-## 🤝 Contributing
 
-Contributions welcome! This project follows the compose-for-agents pattern.
 
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
 
-## 📄 License
 
-MIT License - see LICENSE file for details.
 
-## 🙏 Acknowledgments
-
-- [Microsoft AI Agents for Beginners](https://github.com/microsoft/ai-agents-for-beginners)
-- [Docker Compose for Agents](https://github.com/ajeetraina/compose-for-agents)
-- [Model Context Protocol (MCP)](https://modelcontextprotocol.io/)

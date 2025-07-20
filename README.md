@@ -2,7 +2,6 @@
 
 AI-powered hackathon project recommendations based on GitHub profile analysis and current tech trends.
 
-*Inspired by [Microsoft AI Agents for Beginners](https://github.com/microsoft/ai-agents-for-beginners/tree/main/11-mcp/code_samples/github-mcp)*
 
 ## ✨ Features
 

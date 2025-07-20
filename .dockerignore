@@ -1,6 +1,7 @@
 # Environment files
 .env
 .env.*
+.mcp.*
 
 # Output directories
 output/

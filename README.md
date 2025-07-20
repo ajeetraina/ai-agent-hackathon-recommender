@@ -42,7 +42,7 @@ AI-powered hackathon project recommendations based on GitHub profile analysis an
    ```
 
 3. **Access the app:**
-   Open http://localhost:8501
+   Open http://localhost:3003
 
 ## 🔧 How It Works
 

@@ -3,6 +3,11 @@
 AI-powered hackathon project recommendations based on GitHub profile analysis and current tech trends.
 
 
+<img width="713" height="665" alt="image" src="https://github.com/user-attachments/assets/ed8b7984-ea13-4db6-a1f2-85cf3a00b58d" />
+
+
+
+
 ## ✨ Features
 
 - **🔍 GitHub Profile Analysis** - Analyzes repositories, languages, and technologies

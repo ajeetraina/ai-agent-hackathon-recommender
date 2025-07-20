@@ -32,12 +32,20 @@ RUN echo "=== Contents before build ===" && ls -la
 RUN echo "=== Source directory ===" && ls -la src/
 RUN echo "=== App directory ===" && ls -la src/app/
 
-# Build the application with verbose logging and error checking
-RUN set -e && npm run build 2>&1 | tee build.log && \
-    echo "=== Build completed ===" && \
-    ls -la && \
-    echo "=== Checking .next directory ===" && \
-    ls -la .next/ || echo "ERROR: .next directory not found!"
+# Try building and show all output - even errors
+RUN echo "=== Starting Next.js build ===" && \
+    npm run build && \
+    echo "=== Build completed successfully ===" && \
+    ls -la .next/ && \
+    echo "=== .next contents ===" && \
+    find .next -type f | head -20
+
+# If build fails, create a dummy .next directory so we can see what happened
+RUN if [ ! -d ".next" ]; then \
+        echo "=== Build failed - creating dummy .next ===" && \
+        mkdir -p .next && \
+        echo "Build failed" > .next/build-failed.txt; \
+    fi
 
 # Production image, copy all the files and run next
 FROM base AS runner
@@ -54,8 +62,7 @@ COPY --from=builder /app/public ./public
 COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/next.config.* ./
 
-# Check if .next exists before copying
-RUN echo "About to copy .next directory..."
+# Copy .next directory (even if it's a dummy one)
 COPY --from=builder /app/.next ./.next
 
 # Copy node_modules

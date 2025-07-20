@@ -27,8 +27,17 @@ ENV NEXT_TELEMETRY_DISABLED 1
 # Ensure we have all dependencies
 RUN npm install
 
-# Build the application
-RUN npm run build
+# Debug: Check what we have before build
+RUN echo "=== Contents before build ===" && ls -la
+RUN echo "=== Source directory ===" && ls -la src/
+RUN echo "=== App directory ===" && ls -la src/app/
+
+# Build the application with verbose logging and error checking
+RUN set -e && npm run build 2>&1 | tee build.log && \
+    echo "=== Build completed ===" && \
+    ls -la && \
+    echo "=== Checking .next directory ===" && \
+    ls -la .next/ || echo "ERROR: .next directory not found!"
 
 # Production image, copy all the files and run next
 FROM base AS runner
@@ -42,9 +51,12 @@ RUN adduser --system --uid 1001 nextjs
 
 # Copy necessary files
 COPY --from=builder /app/public ./public
-COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/next.config.* ./
+
+# Check if .next exists before copying
+RUN echo "About to copy .next directory..."
+COPY --from=builder /app/.next ./.next
 
 # Copy node_modules
 COPY --from=deps /app/node_modules ./node_modules
